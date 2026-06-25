@@ -11,16 +11,23 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🥚 Rekap Produksi Telur")
+st.title("🥚 Rekap Produksi & Pendapatan Telur")
 
+# Penambahan pilihan menu baru
 menu = st.sidebar.radio(
     "Menu",
     [
         "Dashboard",
         "Input Produksi",
-        "Data Produksi"
+        "Data Produksi",
+        "Data Pendapatan"  # <--- Menu Baru
     ]
 )
+
+# Konstanta Harga Satuan Telur
+HARGA_AYAM = 1500
+HARGA_BEBEK = 3000
+HARGA_PUYUH = 500
 
 # ==========================
 # DASHBOARD
@@ -33,30 +40,27 @@ if menu == "Dashboard":
     if df.empty:
         st.info("Belum ada data.")
     else:
-
+        
         total_ayam = df["ayam"].sum()
         total_bebek = df["bebek"].sum()
         total_puyuh = df["puyuh"].sum()
-
-        c1,c2,c3 = st.columns(3)
-
-        c1.metric("🐔 Telur Ayam", total_ayam)
-        c2.metric("🦆 Telur Bebek", total_bebek)
-        c3.metric("🐦 Telur Puyuh", total_puyuh)
-
-        HARGA_AYAM = 1500
-        HARGA_BEBEK = 3000
-        HARGA_PUYUH = 500
         
-        total_harga_ayam = total_ayam * HARGA_AYAM
-        total_harga_bebek = total_bebek * HARGA_BEBEK
-        total_harga_puyuh = total_puyuh * HARGA_PUYUH
+        pendapatan_ayam = total_ayam * HARGA_AYAM
+        pendapatan_bebek = total_bebek * HARGA_BEBEK
+        pendapatan_puyuh = total_puyuh * HARGA_PUYUH
         
         grand_total = (
-            total_harga_ayam +
-            total_harga_bebek +
-            total_harga_puyuh
+            pendapatan_ayam +
+            pendapatan_bebek +
+            pendapatan_puyuh
         )
+        
+        c1,c2,c3,c4 = st.columns(4)
+        
+        c1.metric("🐔 Telur Ayam", f"{total_ayam:,} butir")
+        c2.metric("🦆 Telur Bebek", f"{total_bebek:,} butir")
+        c3.metric("🐦 Telur Puyuh", f"{total_puyuh:,} butir")
+        c4.metric("💰 Total Pendapatan", f"Rp {grand_total:,}")
 
         st.divider()
 
@@ -71,6 +75,7 @@ if menu == "Dashboard":
             x="tanggal",
             y=["ayam", "bebek", "puyuh"],
             markers=True,
+            title="Grafik Tren Produksi Harian",
             color_discrete_map={
                 "ayam": "#8B4513",     # Coklat
                 "bebek": "#87CEFA",    # Biru muda
@@ -96,19 +101,19 @@ elif menu == "Input Produksi":
     tanggal = st.date_input("Tanggal")
 
     ayam = st.number_input(
-        "Telur Ayam",
+        "Telur Ayam (Butir)",
         min_value=0,
         value=0
     )
 
     bebek = st.number_input(
-        "Telur Bebek",
+        "Telur Bebek (Butir)",
         min_value=0,
         value=0
     )
 
     puyuh = st.number_input(
-        "Telur Puyuh",
+        "Telur Puyuh (Butir)",
         min_value=0,
         value=0
     )
@@ -139,7 +144,6 @@ elif menu == "Input Produksi":
 
 elif menu == "Data Produksi":
 
-    # Mengambil seluruh data termasuk kolom 'id' asli Anda
     df = pd.read_sql(
         "SELECT id, tanggal, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC",
         conn
@@ -155,7 +159,6 @@ elif menu == "Data Produksi":
             df["puyuh"]
         )
 
-        # Tampilkan data ke user tanpa kolom 'id' agar terlihat rapi di tabel utama
         st.dataframe(
             df.drop(columns=["id"], errors="ignore"),
             use_container_width=True,
@@ -164,7 +167,6 @@ elif menu == "Data Produksi":
 
         excel = "rekap_telur.xlsx"
 
-        # Simpan ke Excel tanpa menyertakan kolom 'id'
         df.drop(columns=["id"], errors="ignore").to_excel(
             excel,
             index=False
@@ -172,7 +174,7 @@ elif menu == "Data Produksi":
 
         with open(excel, "rb") as file:
             st.download_button(
-                "⬇ Download Excel",
+                "⬇ Download Excel Produksi",
                 file,
                 file_name=excel
             )
@@ -181,7 +183,6 @@ elif menu == "Data Produksi":
         st.divider()
         st.subheader("🛠️ Manajemen Data (Edit / Hapus)")
         
-        # Membuat opsi pilihan dropdown menggunakan kolom 'id' asli
         pilihan_data = {
             row["id"]: f"ID {row['id']} — {row['tanggal']} [🐔: {row['ayam']} | 🦆: {row['bebek']} | 🐦: {row['puyuh']}]"
             for _, row in df.iterrows()
@@ -193,12 +194,10 @@ elif menu == "Data Produksi":
             format_func=lambda x: pilihan_data[x]
         )
         
-        # Mengambil data lama berdasarkan 'id' yang dipilih
         data_lama = df[df["id"] == id_terpilih].iloc[0]
         
         col_edit, col_hapus = st.columns(2)
         
-        # --- Kolom Edit Data ---
         with col_edit:
             with st.expander("📝 Edit Data"):
                 with st.form("form_edit"):
@@ -224,7 +223,6 @@ elif menu == "Data Produksi":
                         st.success("Data berhasil diperbarui!")
                         st.rerun()
                         
-        # --- Kolom Hapus Data ---
         with col_hapus:
             with st.expander("🗑️ Hapus Data"):
                 st.warning(f"Apakah Anda yakin ingin menghapus data dengan ID {id_terpilih} tanggal {data_lama['tanggal']}?")
@@ -238,3 +236,69 @@ elif menu == "Data Produksi":
                     conn.commit()
                     st.success("Data berhasil dihapus!")
                     st.rerun()
+
+# ==========================
+# DATA PENDAPATAN (MENU BARU)
+# ==========================
+
+elif menu == "Data Pendapatan":
+    st.subheader("💰 Laporan Pendapatan Keuangan")
+
+    df_dana = pd.read_sql(
+        "SELECT tanggal, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", 
+        conn
+    )
+
+    if df_dana.empty:
+        st.info("Belum ada data transaksi keuangan.")
+    else:
+        # Hitung Pendapatan per Baris Tanggal
+        df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
+        df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
+        df_dana["Uang Puyuh (Rp)"] = df_dana["puyuh"] * HARGA_PUYUH
+        df_dana["Total Pendapatan (Rp)"] = (
+            df_dana["Uang Ayam (Rp)"] + 
+            df_dana["Uang Bebek (Rp)"] + 
+            df_dana["Uang Puyuh (Rp)"]
+        )
+
+        # Hapus kolom kuantitas telur harian agar fokus ke nilai uang rupiah
+        df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"])
+
+        # Tampilkan tabel khusus keuangan
+        st.dataframe(
+            df_tabel_uang,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # Tombol Download Keuangan khusus Excel
+        excel_keuangan = "rekap_pendapatan.xlsx"
+        df_tabel_uang.to_excel(excel_keuangan, index=False)
+
+        with open(excel_keuangan, "rb") as file_keuangan:
+            st.download_button(
+                "⬇ Download Excel Pendapatan",
+                file_keuangan,
+                file_name=excel_keuangan
+            )
+
+        st.divider()
+        st.subheader("📊 Grafik Distribusi Keuangan Harian")
+
+        # Grafik Garis Keuangan
+        fig_dana = px.line(
+            df_dana,
+            x="tanggal",
+            y=["Uang Ayam (Rp)", "Uang Bebek (Rp)", "Uang Puyuh (Rp)", "Total Pendapatan (Rp)"],
+            markers=True,
+            title="Tren Pendapatan Omzet Rupiah",
+            color_discrete_map={
+                "Uang Ayam (Rp)": "#8B4513",
+                "Uang Bebek (Rp)": "#87CEFA",
+                "Uang Puyuh (Rp)": "#D3D3D3",
+                "Total Pendapatan (Rp)": "#00FF00" # Hijau Cerah
+            }
+        )
+        fig_dana.update_layout(template="plotly_white")
+        st.plotly_chart(fig_dana, use_container_width=True)
