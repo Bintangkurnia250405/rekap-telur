@@ -44,6 +44,20 @@ if menu == "Dashboard":
         c2.metric("🦆 Telur Bebek", total_bebek)
         c3.metric("🐦 Telur Puyuh", total_puyuh)
 
+        HARGA_AYAM = 1500
+        HARGA_BEBEK = 3000
+        HARGA_PUYUH = 500
+        
+        total_harga_ayam = total_ayam * HARGA_AYAM
+        total_harga_bebek = total_bebek * HARGA_BEBEK
+        total_harga_puyuh = total_puyuh * HARGA_PUYUH
+        
+        grand_total = (
+            total_harga_ayam +
+            total_harga_bebek +
+            total_harga_puyuh
+        )
+
         st.divider()
 
         df["Total"] = (
@@ -55,11 +69,20 @@ if menu == "Dashboard":
         fig = px.line(
             df,
             x="tanggal",
-            y=["ayam","bebek","puyuh"],
+            y=["ayam", "bebek", "puyuh"],
             markers=True,
-            title="Grafik Produksi"
+            color_discrete_map={
+                "ayam": "#8B4513",     # Coklat
+                "bebek": "#87CEFA",    # Biru muda
+                "puyuh": "#D3D3D3"     # Abu muda
+            }
         )
-
+        
+        fig.update_layout(
+            legend_title="Jenis Telur",
+            template="plotly_white"
+        )
+        
         st.plotly_chart(fig, use_container_width=True)
 
 # ==========================
