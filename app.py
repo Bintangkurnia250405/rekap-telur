@@ -35,7 +35,7 @@ HARGA_PUYUH = 500
 
 if menu == "Dashboard":
 
-    df = pd.read_sql("SELECT * FROMBox produksi", conn)
+    df = pd.read_sql("SELECT * FROM produksi", conn)
 
     if df.empty:
         st.info("Belum ada data.")
