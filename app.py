@@ -35,12 +35,12 @@ HARGA_PUYUH = 500
 
 if menu == "Dashboard":
 
-    df = pd.read_sql("SELECT * FROM produksi", conn)
+    df = pd.read_sql("SELECT * FROMBox produksi", conn)
 
     if df.empty:
         st.info("Belum ada data.")
     else:
-        # --- PERBAIKAN 1: Urutkan data berdasarkan tanggal agar grafik Dashboard rapi ---
+        # Urutkan data berdasarkan tanggal dari kiri ke kanan agar grafik rapi
         df = df.sort_values(by="tanggal").reset_index(drop=True)
         
         total_ayam = df["ayam"].sum()
@@ -93,55 +93,65 @@ if menu == "Dashboard":
         st.plotly_chart(fig, use_container_width=True)
 
 # ==========================
-# INPUT
+# INPUT (SISTEM PROTEKSI GANDA / OTOMATIS REDIRECT EDIT)
 # ==========================
 
 elif menu == "Input Produksi":
 
-    st.subheader("Input Produksi Harian")
+    st.subheader("Input / Edit Produksi Harian")
 
-    tanggal = st.date_input("Tanggal")
+    tanggal = st.date_input("Pilih Tanggal")
+    str_tanggal = str(tanggal)
 
-    ayam = st.number_input(
-        "Telur Ayam (Butir)",
-        min_value=0,
-        value=0
-    )
+    # Cek ke database apakah tanggal ini sudah pernah diisi
+    cursor = conn.cursor()
+    cursor.execute("SELECT ayam, bebek, puyuh FROM produksi WHERE tanggal = ?", (str_tanggal,))
+    data_ada = cursor.fetchone()
 
-    bebek = st.number_input(
-        "Telur Bebek (Butir)",
-        min_value=0,
-        value=0
-    )
+    # Jika tanggal sudah ada, ambil nilai lamanya untuk dijadikan default pengisian
+    if data_ada:
+        st.warning(f"⚠️ Tanggal {str_tanggal} sudah memiliki data di database. Mengisi form ini akan langsung MEMPERBARUI data lama.")
+        default_ayam = int(data_ada[0])
+        default_bebek = int(data_ada[1])
+        default_puyuh = int(data_ada[2])
+    else:
+        default_ayam = 0
+        default_bebek = 0
+        default_puyuh = 0
 
-    puyuh = st.number_input(
-        "Telur Puyuh (Butir)",
-        min_value=0,
-        value=0
-    )
+    ayam = st.number_input("Telur Ayam (Butir)", min_value=0, value=default_ayam)
+    bebek = st.number_input("Telur Bebek (Butir)", min_value=0, value=default_bebek)
+    puyuh = st.number_input("Telur Puyuh (Butir)", min_value=0, value=default_puyuh)
 
-    if st.button("Simpan"):
-
-        conn.execute(
-            """
-            INSERT INTO produksi
-            (tanggal,ayam,bebek,puyuh)
-            VALUES(?,?,?,?)
-            """,
-            (
-                str(tanggal),
-                ayam,
-                bebek,
-                puyuh
+    # Tombol dinamis tergantung status tanggal
+    if data_ada:
+        if st.button("🔄 Perbarui Data (Overwrite)", type="primary"):
+            conn.execute(
+                """
+                UPDATE produksi 
+                SET ayam = ?, bebek = ?, puyuh = ? 
+                WHERE tanggal = ?
+                """,
+                (ayam, bebek, puyuh, str_tanggal)
             )
-        )
-
-        conn.commit()
-
-        st.success("Data berhasil disimpan.")
+            conn.commit()
+            st.success(f"Data tanggal {str_tanggal} berhasil diperbarui!")
+            st.rerun()
+    else:
+        if st.button("📥 Simpan Data Baru"):
+            conn.execute(
+                """
+                INSERT INTO produksi (tanggal, ayam, bebek, puyuh) 
+                VALUES (?, ?, ?, ?)
+                """,
+                (str_tanggal, ayam, bebek, puyuh)
+            )
+            conn.commit()
+            st.success("Data baru berhasil disimpan.")
+            st.rerun()
 
 # ==========================
-# DATA PRODUKSI (EDIT & HAPUS)
+# DATA PRODUKSI (HAPUS DATA)
 # ==========================
 
 elif menu == "Data Produksi":
@@ -154,12 +164,7 @@ elif menu == "Data Produksi":
     if df.empty:
         st.warning("Belum ada data.")
     else:
-
-        df["Total"] = (
-            df["ayam"] +
-            df["bebek"] +
-            df["puyuh"]
-        )
+        df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
         st.dataframe(
             df.drop(columns=["id"], errors="ignore"),
@@ -168,76 +173,31 @@ elif menu == "Data Produksi":
         )
 
         excel = "rekap_telur.xlsx"
-
-        df.drop(columns=["id"], errors="ignore").to_excel(
-            excel,
-            index=False
-        )
+        df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
 
         with open(excel, "rb") as file:
-            st.download_button(
-                "⬇ Download Excel Produksi",
-                file,
-                file_name=excel
-            )
+            st.download_button("⬇ Download Excel Produksi", file, file_name=excel)
         
-        # --- BAGIAN EDIT DAN HAPUS DATA ---
+        # Sederhanakan bagian bawah hanya untuk hapus data, karena edit sudah digabung ke menu Input!
         st.divider()
-        st.subheader("🛠️ Manajemen Data (Edit / Hapus)")
+        st.subheader("🗑️ Hapus Data")
         
         pilihan_data = {
-            row["id"]: f"ID {row['id']} — {row['tanggal']} [🐔: {row['ayam']} | 🦆: {row['bebek']} | 🐦: {row['puyuh']}]"
+            row["id"]: f"{row['tanggal']} [🐔: {row['ayam']} | 🦆: {row['bebek']} | 🐦: {row['puyuh']}]"
             for _, row in df.iterrows()
         }
         
         id_terpilih = st.selectbox(
-            "Pilih baris data yang ingin dimodifikasi:",
+            "Pilih baris data yang ingin dihapus permanen:",
             options=list(pilihan_data.keys()),
             format_func=lambda x: pilihan_data[x]
         )
         
-        data_lama = df[df["id"] == id_terpilih].iloc[0]
-        
-        col_edit, col_hapus = st.columns(2)
-        
-        with col_edit:
-            with st.expander("📝 Edit Data"):
-                with st.form("form_edit"):
-                    tanggal_default = datetime.strptime(data_lama["tanggal"], "%Y-%m-%d").date()
-                    
-                    edit_tanggal = st.date_input("Ubah Tanggal", value=tanggal_default)
-                    edit_ayam = st.number_input("Ubah Telur Ayam", min_value=0, value=int(data_lama["ayam"]))
-                    edit_bebek = st.number_input("Ubah Telur Bebek", min_value=0, value=int(data_lama["bebek"]))
-                    edit_puyuh = st.number_input("Ubah Telur Puyuh", min_value=0, value=int(data_lama["puyuh"]))
-                    
-                    tombol_simpan = st.form_submit_button("Simpan Perubahan")
-                    
-                    if tombol_simpan:
-                        conn.execute(
-                            """
-                            UPDATE produksi
-                            SET tanggal = ?, ayam = ?, bebek = ?, puyuh = ?
-                            WHERE id = ?
-                            """,
-                            (str(edit_tanggal), edit_ayam, edit_bebek, edit_puyuh, id_terpilih)
-                        )
-                        conn.commit()
-                        st.success("Data berhasil diperbarui!")
-                        st.rerun()
-                        
-        with col_hapus:
-            with st.expander("🗑️ Hapus Data"):
-                st.warning(f"Apakah Anda yakin ingin menghapus data dengan ID {id_terpilih} tanggal {data_lama['tanggal']}?")
-                tombol_hapus = st.button("Ya, Hapus Permanen", type="primary")
-                
-                if tombol_hapus:
-                    conn.execute(
-                        "DELETE FROM produksi WHERE id = ?",
-                        (id_terpilih,)
-                    )
-                    conn.commit()
-                    st.success("Data berhasil dihapus!")
-                    st.rerun()
+        if st.button("Hapus Permanen", type="primary"):
+            conn.execute("DELETE FROM produksi WHERE id = ?", (id_terpilih,))
+            conn.commit()
+            st.success("Data berhasil dihapus!")
+            st.rerun()
 
 # ==========================
 # DATA PENDAPATAN
@@ -246,18 +206,15 @@ elif menu == "Data Produksi":
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan")
 
-    df_dana = pd.read_sql(
-        "SELECT tanggal, ayam, bebek, puyuh FROM produksi", 
-        conn
-    )
+    df_dana = pd.read_sql("SELECT tanggal, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana.empty:
         st.info("Belum ada data transaksi keuangan.")
     else:
-        # --- PERBAIKAN 2: Urutkan data berdasarkan tanggal untuk tabel keuangan & grafik keuangan ---
+        # Urutkan data berdasarkan tanggal agar grafik finansial maju teratur
         df_dana = df_dana.sort_values(by="tanggal").reset_index(drop=True)
 
-        # Hitung Pendapatan per Baris Tanggal
+        # Perhitungan finansial harian
         df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
         df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
         df_dana["Uang Puyuh (Rp)"] = df_dana["puyuh"] * HARGA_PUYUH
@@ -267,31 +224,20 @@ elif menu == "Data Pendapatan":
             df_dana["Uang Puyuh (Rp)"]
         )
 
-        # Buat salinan dataframe untuk tampilan tabel (diurutkan DESC agar data terbaru muncul paling atas)
+        # Tabel versi Descending (data terbaru paling atas)
         df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
 
-        # Tampilkan tabel keuangan harian
-        st.dataframe(
-            df_tabel_uang,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
-        # Tombol Download Keuangan khusus Excel
         excel_keuangan = "rekap_pendapatan.xlsx"
         df_tabel_uang.to_excel(excel_keuangan, index=False)
 
         with open(excel_keuangan, "rb") as file_keuangan:
-            st.download_button(
-                "⬇ Download Excel Pendapatan",
-                file_keuangan,
-                file_name=excel_keuangan
-            )
+            st.download_button("⬇ Download Excel Pendapatan", file_keuangan, file_name=excel_keuangan)
 
         st.divider()
         st.subheader("📊 Grafik Distribusi Keuangan Harian")
 
-        # Grafik Garis Keuangan (menggunakan df_dana asli yang ASCENDING agar grafik berjalan dari kiri ke kanan)
         fig_dana = px.line(
             df_dana,
             x="tanggal",
