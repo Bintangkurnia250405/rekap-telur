@@ -13,14 +13,14 @@ st.set_page_config(
 
 st.title("🥚 Rekap Produksi & Pendapatan Telur")
 
-# Penambahan pilihan menu baru
+# Pilihan menu
 menu = st.sidebar.radio(
     "Menu",
     [
         "Dashboard",
         "Input Produksi",
         "Data Produksi",
-        "Data Pendapatan"  # <--- Menu Baru
+        "Data Pendapatan"
     ]
 )
 
@@ -40,6 +40,8 @@ if menu == "Dashboard":
     if df.empty:
         st.info("Belum ada data.")
     else:
+        # --- PERBAIKAN 1: Urutkan data berdasarkan tanggal agar grafik Dashboard rapi ---
+        df = df.sort_values(by="tanggal").reset_index(drop=True)
         
         total_ayam = df["ayam"].sum()
         total_bebek = df["bebek"].sum()
@@ -238,20 +240,23 @@ elif menu == "Data Produksi":
                     st.rerun()
 
 # ==========================
-# DATA PENDAPATAN (MENU BARU)
+# DATA PENDAPATAN
 # ==========================
 
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan")
 
     df_dana = pd.read_sql(
-        "SELECT tanggal, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", 
+        "SELECT tanggal, ayam, bebek, puyuh FROM produksi", 
         conn
     )
 
     if df_dana.empty:
         st.info("Belum ada data transaksi keuangan.")
     else:
+        # --- PERBAIKAN 2: Urutkan data berdasarkan tanggal untuk tabel keuangan & grafik keuangan ---
+        df_dana = df_dana.sort_values(by="tanggal").reset_index(drop=True)
+
         # Hitung Pendapatan per Baris Tanggal
         df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
         df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
@@ -262,10 +267,10 @@ elif menu == "Data Pendapatan":
             df_dana["Uang Puyuh (Rp)"]
         )
 
-        # Hapus kolom kuantitas telur harian agar fokus ke nilai uang rupiah
-        df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"])
+        # Buat salinan dataframe untuk tampilan tabel (diurutkan DESC agar data terbaru muncul paling atas)
+        df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
 
-        # Tampilkan tabel khusus keuangan
+        # Tampilkan tabel keuangan harian
         st.dataframe(
             df_tabel_uang,
             use_container_width=True,
@@ -286,7 +291,7 @@ elif menu == "Data Pendapatan":
         st.divider()
         st.subheader("📊 Grafik Distribusi Keuangan Harian")
 
-        # Grafik Garis Keuangan
+        # Grafik Garis Keuangan (menggunakan df_dana asli yang ASCENDING agar grafik berjalan dari kiri ke kanan)
         fig_dana = px.line(
             df_dana,
             x="tanggal",
@@ -297,7 +302,7 @@ elif menu == "Data Pendapatan":
                 "Uang Ayam (Rp)": "#8B4513",
                 "Uang Bebek (Rp)": "#87CEFA",
                 "Uang Puyuh (Rp)": "#D3D3D3",
-                "Total Pendapatan (Rp)": "#00FF00" # Hijau Cerah
+                "Total Pendapatan (Rp)": "#00FF00"
             }
         )
         fig_dana.update_layout(template="plotly_white")
