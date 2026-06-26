@@ -1,5 +1,4 @@
 import streamlit as st
-import base64 
 import pandas as pd
 import sqlite3
 import plotly.express as px
@@ -8,9 +7,9 @@ from datetime import datetime, timedelta
 import os
 import io
 
-# Import untuk membuat PDF
+# Import untuk membuat PDF resmi
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -72,7 +71,7 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Generator PDF Otomatis
+# Fungsi Pembuat PDF Laporan
 def buat_pdf_laporan(judul_laporan, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -80,18 +79,16 @@ def buat_pdf_laporan(judul_laporan, df_data):
     
     styles = getSampleStyleSheet()
     
-    # Gaya Judul
     title_style = ParagraphStyle(
         'JudulPDF',
         parent=styles['Heading1'],
-        fontSize=18,
-        leading=22,
+        fontSize=16,
+        leading=20,
         textColor=colors.HexColor('#8B4513'),
-        alignment=1, # Center
+        alignment=1, 
         spaceAfter=10
     )
     
-    # Gaya Subjudul Waktu
     sub_style = ParagraphStyle(
         'SubJudulPDF',
         parent=styles['Normal'],
@@ -105,22 +102,19 @@ def buat_pdf_laporan(judul_laporan, df_data):
     waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
     story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
     
-    # Konversi DataFrame ke format list untuk tabel ReportLab
     data_tabel = [df_data.columns.tolist()] + df_data.values.tolist()
     
-    # Memastikan semua isi sel berupa string/text agar tidak eror
     for i in range(len(data_tabel)):
         for j in range(len(data_tabel[i])):
             data_tabel[i][j] = str(data_tabel[i][j])
             
-    # Membuat tabel ReportLab
     t = Table(data_tabel, hAlign='CENTER')
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FFF8EE')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#8B4513')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -146,7 +140,9 @@ conn.commit()
 try:
     conn.execute("SELECT jam FROM produksi LIMIT 1")
 except sqlite3.OperationalError:
-    conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
+    conn.execute("ALTER TABLEBox produksi ADD COLUMN jam TEXT DEFAULT '-'")
+    # Jika database Anda sudah stabil dari database.py lama, ganti dengan:
+    # conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
     conn.commit()
 
 # ==========================
@@ -232,7 +228,9 @@ elif menu == "Input Produksi":
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
                 jam_wib = ambil_jam_wib()
-                conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
+                conn.execute("UPDATEBox produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
+                # Jika database Anda normal, ganti dengan:
+                # conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
                 conn.commit()
                 st.success(f"Data tanggal {str_tanggal} berhasil diperbarui pada jam {jam_wib} WIB!")
                 st.rerun()
@@ -269,8 +267,6 @@ elif menu == "Data Produksi":
     st.subheader("📦 Data Rekap Produksi Telur Harian")
 
     df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
-    # Jika database Anda sudah diperbaiki dari FROM, gunakan baris di bawah ini:
-    # df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
 
     if df_all.empty:
         st.warning("Belum ada data produksi.")
@@ -295,27 +291,23 @@ elif menu == "Data Produksi":
 
             st.dataframe(df_tabel, use_container_width=True, hide_index=True)
 
-            # Tombol Aksi Baru (PDF Halaman Baru & Excel)
-            with btn_pdf:
+            # Tombol Cetak / Simpan Berformat File Resmi
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
                 pdf_data = buat_pdf_laporan(f"Laporan Rekap Produksi Telur ({tgl_mulai} s/d {tgl_selesai})", df_tabel)
-                
-                # Mengubah file PDF menjadi teks base64 agar bisa dibaca langsung oleh browser
-                b64_pdf = base64.b64encode(pdf_data.getvalue()).decode('utf-8')
-                
-                # Membuat tombol HTML yang melontarkan PDF ke tab baru tanpa download
-                tombol_html = f'''
-                    <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" style="text-decoration: none;">
-                        <button style="width: 100%; background-color: #8B4513; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                            🖨️ Buka & Cetak PDF (Halaman Baru)
-                        </button>
-                    </a>
-                '''
-                st.markdown(tombol_html, unsafe_allow_html=True)
-            with btn_excel:
+                st.download_button(
+                    label="📄 Unduh / Cetak Laporan PDF",
+                    data=pdf_data,
+                    file_name=f"Laporan_Produksi_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            with btn_col2:
                 excel = "rekap_telur_filter.xlsx"
                 df_tabel.to_excel(excel, index=False)
                 with open(excel, "rb") as file:
-                    st.download_button(f"⬇ Download Excel Data Terfilter", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+                    st.download_button("⬇ Download File Excel", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
@@ -334,6 +326,7 @@ elif menu == "Data Produksi":
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
+    # PERBAIKAN: Kata 'FROMBox' di bawah ini diubah menjadi 'FROM' agar tidak memicu DatabaseError
     df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana_all.empty:
@@ -364,26 +357,23 @@ elif menu == "Data Pendapatan":
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
-            # Tombol Aksi Baru (PDF Halaman Baru & Excel)
-            btn_pdf, btn_excel = st.columns(2)
-            with btn_pdf:
+            # Tombol Cetak / Simpan Berformat File Resmi
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
                 pdf_pendapatan = buat_pdf_laporan(f"Laporan Pendapatan Keuangan ({tgl_mulai} s/d {tgl_selesai})", df_tabel_uang)
-                
-                # Proses lontar tab baru
-                b64_pdf = base64.b64encode(pdf_pendapatan.getvalue()).decode('utf-8')
-                tombol_html = f'''
-                    <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" style="text-decoration: none;">
-                        <button style="width: 100%; background-color: #8B4513; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                            🖨️ Buka & Cetak PDF (Halaman Baru)
-                        </button>
-                    </a>
-                '''
-                st.markdown(tombol_html, unsafe_allow_html=True)
-            with btn_excel:
+                st.download_button(
+                    label="📄 Unduh / Cetak Laporan PDF",
+                    data=pdf_pendapatan,
+                    file_name=f"Laporan_Pendapatan_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            with btn_col2:
                 excel_keuangan = "rekap_pendapatan_filter.xlsx"
                 df_tabel_uang.to_excel(excel_keuangan, index=False)
                 with open(excel_keuangan, "rb") as file_keuangan:
-                    st.download_button(f"⬇ Download Excel Data Terfilter", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+                    st.download_button("⬇ Download File Excel", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
             st.divider()
             st.subheader("📊 Grafik Distribusi Keuangan Harian")
@@ -424,26 +414,23 @@ elif menu == "Data Pengeluaran":
             df_tabel_keluar = df_keluar_filtered.drop(columns=["id"], errors="ignore")
             st.dataframe(df_tabel_keluar, use_container_width=True, hide_index=True)
 
-            # Tombol Aksi Baru (PDF Halaman Baru & Excel)
-            btn_pdf, btn_excel = st.columns(2)
-            with btn_pdf:
+            # Tombol Cetak / Simpan Berformat File Resmi
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
                 pdf_pengeluaran = buat_pdf_laporan(f"Laporan Pengeluaran Operasional ({tgl_mulai} s/d {tgl_selesai})", df_tabel_keluar)
-                
-                # Proses lontar tab baru
-                b64_pdf = base64.b64encode(pdf_pengeluaran.getvalue()).decode('utf-8')
-                tombol_html = f'''
-                    <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" style="text-decoration: none;">
-                        <button style="width: 100%; background-color: #8B4513; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                            🖨️ Buka & Cetak PDF (Halaman Baru)
-                        </button>
-                    </a>
-                '''
-                st.markdown(tombol_html, unsafe_allow_html=True)
-            with btn_excel:
+                st.download_button(
+                    label="📄 Unduh / Cetak Laporan PDF",
+                    data=pdf_pengeluaran,
+                    file_name=f"Laporan_Pengeluaran_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            with btn_col2:
                 excel_keluar = "rekap_pengeluaran_filter.xlsx"
                 df_tabel_keluar.to_excel(excel_keluar, index=False)
                 with open(excel_keluar, "rb") as file_keluar:
-                    st.download_button(f"⬇ Download Excel Data Terfilter", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+                    st.download_button("⬇ Download File Excel", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
