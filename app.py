@@ -256,7 +256,7 @@ elif menu == "Data Produksi":
             for _, row in df_all.iterrows()
         }
         
-        id_terpilih = st.select(
+        id_terpilih = st.selectbox(
             "Pilih baris data produksi yang ingin dihapus permanen:",
             options=list(pilihan_data.keys()),
             format_func=lambda x: pilihan_data[x]
@@ -392,7 +392,7 @@ elif menu == "Data Pengeluaran":
             for _, row in df_keluar_all.iterrows()
         }
 
-        id_keluar_terpilih = st.select(
+        id_keluar_terpilih = st.selectbox(
             "Pilih nota pengeluaran yang ingin dihapus:",
             options=list(pilihan_keluar.keys()),
             format_func=lambda x: pilihan_keluar[x]
