@@ -4,7 +4,14 @@ import sqlite3
 import plotly.express as px
 from database import conn
 from datetime import datetime, timedelta
-import os  # Tambahan untuk mengecek file logo
+import os
+import io
+
+# Import untuk membuat PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 st.set_page_config(
     page_title="Rekap Produksi Telur",
@@ -13,44 +20,19 @@ st.set_page_config(
 )
 
 # ==========================================
-# CUSTOMLY BACKGROUND, GAYA TAMPILAN & PRINT (CSS)
+# CUSTOMLY BACKGROUND & GAYA TAMPILAN (CSS)
 # ==========================================
 st.markdown(
     """
     <style>
-    /* Mengubah warna background halaman utama */
     .stApp {
-        background-color: #FDFBF7; /* Warna krem susu lembut, nyaman di mata orang tua */
+        background-color: #FDFBF7; 
     }
-    
-    /* Mengubah warna background sidebar menu samping */
     section[data-testid="stSidebar"] {
         background-color: #FFF8EE !important;
     }
-    
-    /* Mempercantik tombol-tombol utama */
     .stButton>button {
         border-radius: 8px;
-    }
-
-    /* KODE KHUSUS UNTUK CETAK KERTAS (PRINT) */
-    @media print {
-        /* Sembunyikan sidebar, tombol download, tombol hapus, dan grafik saat dicetak */
-        section[data-testid="stSidebar"], 
-        .stDownloadButton, 
-        button, 
-        iframe, 
-        header,
-        footer,
-        div[data-testid="stMetricBlock"],
-        .stPlotlyChart {
-            display: none !important;
-        }
-        /* Maksimalkan lebar tabel agar pas di kertas */
-        .main .block-container {
-            max-width: 100% !important;
-            padding: 0px !important;
-        }
     }
     </style>
     """,
@@ -58,7 +40,7 @@ st.markdown(
 )
 
 # ==========================================
-# MENAMPILKAN LOGO DI SIDEBAR (MENU SAMPING)
+# MENAMPILKAN LOGO DI SIDEBAR
 # ==========================================
 nama_file_logo = "logo.png" 
 
@@ -69,7 +51,6 @@ else:
 
 st.sidebar.divider()
 
-# Pilihan menu
 menu = st.sidebar.radio(
     "Menu Navigasi",
     [
@@ -81,18 +62,75 @@ menu = st.sidebar.radio(
     ]
 )
 
-# Konstanta Harga Satuan Telur
 HARGA_AYAM = 1500
 HARGA_BEBEK = 3000
 HARGA_PUYUH = 500
 
-# Fungsi pembantu untuk mengambil jam WIB saat ini (UTC +7)
 def ambil_jam_wib():
     waktu_utc = datetime.utcnow()
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Buat tabel pengeluaran otomatis jika belum ada di database
+# Fungsi Generator PDF Otomatis
+def buat_pdf_laporan(judul_laporan, df_data):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    # Gaya Judul
+    title_style = ParagraphStyle(
+        'JudulPDF',
+        parent=styles['Heading1'],
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#8B4513'),
+        alignment=1, # Center
+        spaceAfter=10
+    )
+    
+    # Gaya Subjudul Waktu
+    sub_style = ParagraphStyle(
+        'SubJudulPDF',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.gray,
+        alignment=1,
+        spaceAfter=20
+    )
+    
+    story.append(Paragraph(judul_laporan.upper(), title_style))
+    waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
+    story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
+    
+    # Konversi DataFrame ke format list untuk tabel ReportLab
+    data_tabel = [df_data.columns.tolist()] + df_data.values.tolist()
+    
+    # Memastikan semua isi sel berupa string/text agar tidak eror
+    for i in range(len(data_tabel)):
+        for j in range(len(data_tabel[i])):
+            data_tabel[i][j] = str(data_tabel[i][j])
+            
+    # Membuat tabel ReportLab
+    t = Table(data_tabel, hAlign='CENTER')
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FFF8EE')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#8B4513')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(t)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
 conn.execute("""
 CREATE TABLE IF NOT EXISTS pengeluaran (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +142,6 @@ CREATE TABLE IF NOT EXISTS pengeluaran (
 """)
 conn.commit()
 
-# Cek apakah kolom jam sudah ada di tabel produksi (untuk database lama)
 try:
     conn.execute("SELECT jam FROM produksi LIMIT 1")
 except sqlite3.OperationalError:
@@ -114,7 +151,6 @@ except sqlite3.OperationalError:
 # ==========================
 # 1. DASHBOARD
 # ==========================
-
 if menu == "Dashboard":
     st.title("🥚 Rekap Produksi & Keuangan")
     df = pd.read_sql("SELECT * FROM produksi", conn)
@@ -155,16 +191,9 @@ if menu == "Dashboard":
         df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
         fig = px.line(
-            df,
-            x="tanggal",
-            y=["ayam", "bebek", "puyuh"],
-            markers=True,
+            df, x="tanggal", y=["ayam", "bebek", "puyuh"], markers=True,
             title="Grafik Tren Produksi Harian",
-            color_discrete_map={
-                "ayam": "#8B4513",
-                "bebek": "#87CEFA",
-                "puyuh": "#ffff00"
-            }
+            color_discrete_map={"ayam": "#8B4513", "bebek": "#87CEFA", "puyuh": "#ffff00"}
         )
         fig.update_layout(legend_title="Jenis Telur", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
@@ -172,7 +201,6 @@ if menu == "Dashboard":
 # ==========================
 # 2. INPUT PRODUKSI & PENGELUARAN
 # ==========================
-
 elif menu == "Input Produksi":
     st.subheader("Formulir Pencatatan Harian")
     tab1, tab2 = st.tabs(["🥚 Input Produksi Telur", "💸 Input Pengeluaran Biaya"])
@@ -234,13 +262,14 @@ elif menu == "Input Produksi":
                 st.rerun()
 
 # ==========================
-# 3. DATA PRODUKSI (DENGAN PRINT & FILTER)
+# 3. DATA PRODUKSI
 # ==========================
-
 elif menu == "Data Produksi":
     st.subheader("📦 Data Rekap Produksi Telur Harian")
 
     df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
+    # Jika database Anda sudah diperbaiki dari FROM, gunakan baris di bawah ini:
+    # df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
 
     if df_all.empty:
         st.warning("Belum ada data produksi.")
@@ -261,21 +290,28 @@ elif menu == "Data Produksi":
             st.info("Tidak ada data produksi pada rentang tanggal tersebut.")
         else:
             df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
+            df_tabel = df.drop(columns=["id"], errors="ignore")
 
-            st.dataframe(df.drop(columns=["id"], errors="ignore"), use_container_width=True, hide_index=True)
+            st.dataframe(df_tabel, use_container_width=True, hide_index=True)
 
-            # Baris Tombol Aksi (Download & Print)
-            btn_col1, btn_col2 = st.columns([1, 5])
-            with btn_col1:
-                # Tombol Cetak / Print Laporan
-                if st.button("🖨️ Cetak / Print Laporan", type="secondary"):
-                    st.markdown("<script>window.print();</script>", unsafe_allow_html=True)
-            with btn_col2:
+            # Tombol Aksi Baru (PDF Halaman Baru & Excel)
+            btn_pdf, btn_excel = st.columns(2)
+            with btn_pdf:
+                pdf_data = buat_pdf_laporan(f"Laporan Rekap Produksi Telur ({tgl_mulai} s/d {tgl_selesai})", df_tabel)
+                st.download_button(
+                    label="🖨️ Buka & Download PDF (Siap Cetak)",
+                    data=pdf_data,
+                    file_name=f"Laporan_Produksi_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            with btn_excel:
                 excel = "rekap_telur_filter.xlsx"
-                df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
+                df_tabel.to_excel(excel, index=False)
                 with open(excel, "rb") as file:
-                    st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx")
-        
+                    st.download_button(f"⬇ Download Excel Data Terfilter", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
         pilihan_data = {row["id"]: f"{row['tanggal']} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]" for _, row in df_all.iterrows()}
@@ -288,9 +324,8 @@ elif menu == "Data Produksi":
             st.rerun()
 
 # ==========================
-# 4. DATA PENDAPATAN (DENGAN PRINT & FILTER)
+# 4. DATA PENDAPATAN
 # ==========================
-
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
@@ -324,16 +359,23 @@ elif menu == "Data Pendapatan":
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
-            # Baris Tombol Aksi (Download & Print)
-            btn_col1, btn_col2 = st.columns([1, 5])
-            with btn_col1:
-                if st.button("🖨️ Cetak / Print Laporan ", type="secondary"):
-                    st.markdown("<script>window.print();</script>", unsafe_allow_html=True)
-            with btn_col2:
+            # Tombol Aksi Baru (PDF Halaman Baru & Excel)
+            btn_pdf, btn_excel = st.columns(2)
+            with btn_pdf:
+                pdf_pendapatan = buat_pdf_laporan(f"Laporan Pendapatan Keuangan ({tgl_mulai} s/d {tgl_selesai})", df_tabel_uang)
+                st.download_button(
+                    label="🖨️ Buka & Download PDF (Siap Cetak)",
+                    data=pdf_pendapatan,
+                    file_name=f"Laporan_Pendapatan_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            with btn_excel:
                 excel_keuangan = "rekap_pendapatan_filter.xlsx"
                 df_tabel_uang.to_excel(excel_keuangan, index=False)
                 with open(excel_keuangan, "rb") as file_keuangan:
-                    st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx")
+                    st.download_button(f"⬇ Download Excel Data Terfilter", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
             st.divider()
             st.subheader("📊 Grafik Distribusi Keuangan Harian")
@@ -346,9 +388,8 @@ elif menu == "Data Pendapatan":
             st.plotly_chart(fig_dana, use_container_width=True)
 
 # ==========================
-# 5. DATA PENGELUARAN (DENGAN PRINT & FILTER)
+# 5. DATA PENGELUARAN
 # ==========================
-
 elif menu == "Data Pengeluaran":
     st.subheader("💸 Laporan Pengeluaran Operasional / Pembelian Pakan")
 
@@ -372,18 +413,26 @@ elif menu == "Data Pengeluaran":
         if df_keluar_filtered.empty:
             st.info("Tidak ada data pengeluaran pada rentang tanggal tersebut.")
         else:
-            st.dataframe(df_keluar_filtered.drop(columns=["id"], errors="ignore"), use_container_width=True, hide_index=True)
+            df_tabel_keluar = df_keluar_filtered.drop(columns=["id"], errors="ignore")
+            st.dataframe(df_tabel_keluar, use_container_width=True, hide_index=True)
 
-            # Baris Tombol Aksi (Download & Print)
-            btn_col1, btn_col2 = st.columns([1, 5])
-            with btn_col1:
-                if st.button("🖨️ Cetak / Print Laporan  ", type="secondary"):
-                    st.markdown("<script>window.print();</script>", unsafe_allow_html=True)
-            with btn_col2:
+            # Tombol Aksi Baru (PDF Halaman Baru & Excel)
+            btn_pdf, btn_excel = st.columns(2)
+            with btn_pdf:
+                pdf_pengeluaran = buat_pdf_laporan(f"Laporan Pengeluaran Operasional ({tgl_mulai} s/d {tgl_selesai})", df_tabel_keluar)
+                st.download_button(
+                    label="🖨️ Buka & Download PDF (Siap Cetak)",
+                    data=pdf_pengeluaran,
+                    file_name=f"Laporan_Pengeluaran_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            with btn_excel:
                 excel_keluar = "rekap_pengeluaran_filter.xlsx"
-                df_keluar_filtered.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
+                df_tabel_keluar.to_excel(excel_keluar, index=False)
                 with open(excel_keluar, "rb") as file_keluar:
-                    st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx")
+                    st.download_button(f"⬇ Download Excel Data Terfilter", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
