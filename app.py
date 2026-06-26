@@ -148,7 +148,7 @@ if menu == "Dashboard":
             color_discrete_map={
                 "ayam": "#8B4513",
                 "bebek": "#87CEFA",
-                "puyuh": "#D3D3D3"
+                "puyuh": "#ffff00"
             }
         )
         fig.update_layout(legend_title="Jenis Telur", template="plotly_white")
