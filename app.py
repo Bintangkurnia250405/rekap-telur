@@ -4,6 +4,7 @@ import sqlite3
 import plotly.express as px
 from database import conn
 from datetime import datetime, timedelta
+import os  # Tambahan untuk mengecek file logo
 
 st.set_page_config(
     page_title="Rekap Produksi Telur",
@@ -11,11 +12,49 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🥚 Rekap Produksi, Pendapatan & Pengeluaran Telur")
+# ==========================================
+# CUSTOMLY BACKGROUND & GAYA TAMPILAN (CSS)
+# ==========================================
+st.markdown(
+    """
+    <style>
+    /* Mengubah warna background halaman utama */
+    .stApp {
+        background-color: #FDFBF7; /* Warna krem susu lembut, nyaman di mata orang tua */
+    }
+    
+    /* Mengubah warna background sidebar menu samping */
+    section[data-testid="stSidebar"] {
+        background-color: #FFF8EE !important;
+    }
+    
+    /* Mempercantik tombol-tombol utama */
+    .stButton>button {
+        border-radius: 8px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ==========================================
+# MENAMPILKAN LOGO DI SIDEBAR (MENU SAMPING)
+# ==========================================
+# Pastikan Anda mengunggah file gambar bernama 'logo.png' ke folder proyek Anda
+nama_file_logo = "logo.png" 
+
+if os.path.exists(nama_file_logo):
+    # Jika file logo.png ada, tampilkan di atas menu radio
+    st.sidebar.image(nama_file_logo, use_container_width=True)
+else:
+    # Jika belum ada logo, tampilkan ikon emotikon bawaan sebagai pengganti sementara
+    st.sidebar.markdown("<h2 style='text-align: center;'>🥚 KANDANG JAYA</h2>", unsafe_allow_html=True)
+
+st.sidebar.divider()
 
 # Pilihan menu
 menu = st.sidebar.radio(
-    "Menu",
+    "Menu Navigasi",
     [
         "Dashboard",
         "Input Produksi",
@@ -53,8 +92,6 @@ try:
     conn.execute("SELECT jam FROM produksi LIMIT 1")
 except sqlite3.OperationalError:
     conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
-    # Jika baris di atas error saat dijalankan, ganti ke standar:
-    # conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
     conn.commit()
 
 # ==========================
@@ -62,7 +99,7 @@ except sqlite3.OperationalError:
 # ==========================
 
 if menu == "Dashboard":
-
+    st.title("🥚 Rekap Produksi & Keuangan")
     df = pd.read_sql("SELECT * FROM produksi", conn)
     df_pengeluaran = pd.read_sql("SELECT * FROM pengeluaran", conn)
 
@@ -122,7 +159,7 @@ if menu == "Dashboard":
 # ==========================
 
 elif menu == "Input Produksi":
-
+    st.subheader("Formulir Pencatatan Harian")
     tab1, tab2 = st.tabs(["🥚 Input Produksi Telur", "💸 Input Pengeluaran Biaya"])
 
     with tab1:
@@ -203,19 +240,17 @@ elif menu == "Input Produksi":
                 st.rerun()
 
 # ==========================
-# 3. DATA PRODUKSI (DENGAN FILTER TANGGAL)
+# 3. DATA PRODUKSI
 # ==========================
 
 elif menu == "Data Produksi":
     st.subheader("📦 Data Rekap Produksi Telur Harian")
 
-    # Ambil semua data terlebih dahulu untuk menentukan range tanggal default
     df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
 
     if df_all.empty:
         st.warning("Belum ada data produksi.")
     else:
-        # Tambahkan Filter Rentang Tanggal di bagian atas halaman
         st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
         col_tgl1, col_tgl2 = st.columns(2)
         
@@ -224,7 +259,6 @@ elif menu == "Data Produksi":
         with col_tgl2:
             tgl_selesai = st.date_input("Sampai Tanggal", value=datetime.strptime(df_all["tanggal"].max(), "%Y-%m-%d").date())
 
-        # Filter dataframe berdasarkan tanggal yang dipilih
         df_all["tanggal_dt"] = pd.to_datetime(df_all["tanggal"]).dt.date
         df = df_all[(df_all["tanggal_dt"] >= tgl_mulai) & (df_all["tanggal_dt"] <= tgl_selesai)].copy()
         df = df.drop(columns=["tanggal_dt"])
@@ -234,14 +268,12 @@ elif menu == "Data Produksi":
         else:
             df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
-            # Tampilkan tabel yang sudah terfilter
             st.dataframe(
                 df.drop(columns=["id"], errors="ignore"),
                 use_container_width=True,
                 hide_index=True
             )
 
-            # Buat file Excel dari data yang sudah terfilter saja
             excel = "rekap_telur_filter.xlsx"
             df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
 
@@ -269,14 +301,12 @@ elif menu == "Data Produksi":
             st.rerun()
 
 # ==========================
-# 4. DATA PENDAPATAN (DENGAN FILTER TANGGAL)
+# 4. DATA PENDAPATAN
 # ==========================
 
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
-    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
-    # Jika database Anda sudah diperbaiki dari FROM, gunakan baris di bawah ini:
     df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana_all.empty:
@@ -284,7 +314,6 @@ elif menu == "Data Pendapatan":
     else:
         df_dana_all = df_dana_all.sort_values(by="tanggal").reset_index(drop=True)
 
-        # Tambahkan Filter Rentang Tanggal
         st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
         col_tgl1, col_tgl2 = st.columns(2)
         
@@ -293,7 +322,6 @@ elif menu == "Data Pendapatan":
         with col_tgl2:
             tgl_selesai = st.date_input("Sampai Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].max(), "%Y-%m-%d").date())
 
-        # Filter data berdasarkan tanggal
         df_dana_all["tanggal_dt"] = pd.to_datetime(df_dana_all["tanggal"]).dt.date
         df_dana = df_dana_all[(df_dana_all["tanggal_dt"] >= tgl_mulai) & (df_dana_all["tanggal_dt"] <= tgl_selesai)].copy()
         df_dana = df_dana.drop(columns=["tanggal_dt"])
@@ -311,11 +339,8 @@ elif menu == "Data Pendapatan":
             )
 
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
-
-            # Tampilkan tabel terfilter
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
-            # Download data terfilter
             excel_keuangan = "rekap_pendapatan_filter.xlsx"
             df_tabel_uang.to_excel(excel_keuangan, index=False)
 
@@ -342,7 +367,7 @@ elif menu == "Data Pendapatan":
             st.plotly_chart(fig_dana, use_container_width=True)
 
 # ==========================
-# 5. DATA PENGELUARAN (DENGAN FILTER TANGGAL)
+# 5. DATA PENGELUARAN
 # ==========================
 
 elif menu == "Data Pengeluaran":
@@ -353,7 +378,6 @@ elif menu == "Data Pengeluaran":
     if df_keluar_all.empty:
         st.info("Belum ada catatan pengeluaran biaya.")
     else:
-        # Tambahkan Filter Rentang Tanggal
         st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
         col_tgl1, col_tgl2 = st.columns(2)
         
@@ -362,7 +386,6 @@ elif menu == "Data Pengeluaran":
         with col_tgl2:
             tgl_selesai = st.date_input("Sampai Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].max(), "%Y-%m-%d").date())
 
-        # Filter data berdasarkan tanggal
         df_keluar_all["tanggal_dt"] = pd.to_datetime(df_keluar_all["tanggal"]).dt.date
         df_keluar_filtered = df_keluar_all[(df_keluar_all["tanggal_dt"] >= tgl_mulai) & (df_keluar_all["tanggal_dt"] <= tgl_selesai)].copy()
         df_keluar_filtered = df_keluar_filtered.drop(columns=["tanggal_dt"])
@@ -370,14 +393,12 @@ elif menu == "Data Pengeluaran":
         if df_keluar_filtered.empty:
             st.info("Tidak ada data pengeluaran pada rentang tanggal tersebut.")
         else:
-            # Tampilkan tabel terfilter
             st.dataframe(
                 df_keluar_filtered.drop(columns=["id"], errors="ignore"),
                 use_container_width=True,
                 hide_index=True
             )
 
-            # Download data terfilter
             excel_keluar = "rekap_pengeluaran_filter.xlsx"
             df_keluar_filtered.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
 
