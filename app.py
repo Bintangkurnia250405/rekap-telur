@@ -296,17 +296,21 @@ elif menu == "Data Produksi":
             st.dataframe(df_tabel, use_container_width=True, hide_index=True)
 
             # Tombol Aksi Baru (PDF Halaman Baru & Excel)
-            btn_pdf, btn_excel = st.columns(2)
             with btn_pdf:
                 pdf_data = buat_pdf_laporan(f"Laporan Rekap Produksi Telur ({tgl_mulai} s/d {tgl_selesai})", df_tabel)
-                st.download_button(
-                    label="🖨️ Buka & Download PDF (Siap Cetak)",
-                    data=pdf_data,
-                    file_name=f"Laporan_Produksi_{tgl_mulai}_to_{tgl_selesai}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
+                
+                # Mengubah file PDF menjadi teks base64 agar bisa dibaca langsung oleh browser
+                b64_pdf = base64.b64encode(pdf_data.getvalue()).decode('utf-8')
+                
+                # Membuat tombol HTML yang melontarkan PDF ke tab baru tanpa download
+                tombol_html = f'''
+                    <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" style="text-decoration: none;">
+                        <button style="width: 100%; background-color: #8B4513; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                            🖨️ Buka & Cetak PDF (Halaman Baru)
+                        </button>
+                    </a>
+                '''
+                st.markdown(tombol_html, unsafe_allow_html=True)
             with btn_excel:
                 excel = "rekap_telur_filter.xlsx"
                 df_tabel.to_excel(excel, index=False)
@@ -364,14 +368,17 @@ elif menu == "Data Pendapatan":
             btn_pdf, btn_excel = st.columns(2)
             with btn_pdf:
                 pdf_pendapatan = buat_pdf_laporan(f"Laporan Pendapatan Keuangan ({tgl_mulai} s/d {tgl_selesai})", df_tabel_uang)
-                st.download_button(
-                    label="🖨️ Buka & Download PDF (Siap Cetak)",
-                    data=pdf_pendapatan,
-                    file_name=f"Laporan_Pendapatan_{tgl_mulai}_to_{tgl_selesai}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
+                
+                # Proses lontar tab baru
+                b64_pdf = base64.b64encode(pdf_pendapatan.getvalue()).decode('utf-8')
+                tombol_html = f'''
+                    <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" style="text-decoration: none;">
+                        <button style="width: 100%; background-color: #8B4513; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                            🖨️ Buka & Cetak PDF (Halaman Baru)
+                        </button>
+                    </a>
+                '''
+                st.markdown(tombol_html, unsafe_allow_html=True)
             with btn_excel:
                 excel_keuangan = "rekap_pendapatan_filter.xlsx"
                 df_tabel_uang.to_excel(excel_keuangan, index=False)
@@ -421,14 +428,17 @@ elif menu == "Data Pengeluaran":
             btn_pdf, btn_excel = st.columns(2)
             with btn_pdf:
                 pdf_pengeluaran = buat_pdf_laporan(f"Laporan Pengeluaran Operasional ({tgl_mulai} s/d {tgl_selesai})", df_tabel_keluar)
-                st.download_button(
-                    label="🖨️ Buka & Download PDF (Siap Cetak)",
-                    data=pdf_pengeluaran,
-                    file_name=f"Laporan_Pengeluaran_{tgl_mulai}_to_{tgl_selesai}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
+                
+                # Proses lontar tab baru
+                b64_pdf = base64.b64encode(pdf_pengeluaran.getvalue()).decode('utf-8')
+                tombol_html = f'''
+                    <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" style="text-decoration: none;">
+                        <button style="width: 100%; background-color: #8B4513; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                            🖨️ Buka & Cetak PDF (Halaman Baru)
+                        </button>
+                    </a>
+                '''
+                st.markdown(tombol_html, unsafe_allow_html=True)
             with btn_excel:
                 excel_keluar = "rekap_pengeluaran_filter.xlsx"
                 df_tabel_keluar.to_excel(excel_keluar, index=False)
