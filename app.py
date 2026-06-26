@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# CUSTOMLY BACKGROUND & GAYA TAMPILAN (CSS)
+# CUSTOMLY BACKGROUND, GAYA TAMPILAN & PRINT (CSS)
 # ==========================================
 st.markdown(
     """
@@ -32,6 +32,26 @@ st.markdown(
     .stButton>button {
         border-radius: 8px;
     }
+
+    /* KODE KHUSUS UNTUK CETAK KERTAS (PRINT) */
+    @media print {
+        /* Sembunyikan sidebar, tombol download, tombol hapus, dan grafik saat dicetak */
+        section[data-testid="stSidebar"], 
+        .stDownloadButton, 
+        button, 
+        iframe, 
+        header,
+        footer,
+        div[data-testid="stMetricBlock"],
+        .stPlotlyChart {
+            display: none !important;
+        }
+        /* Maksimalkan lebar tabel agar pas di kertas */
+        .main .block-container {
+            max-width: 100% !important;
+            padding: 0px !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -40,14 +60,11 @@ st.markdown(
 # ==========================================
 # MENAMPILKAN LOGO DI SIDEBAR (MENU SAMPING)
 # ==========================================
-# Pastikan Anda mengunggah file gambar bernama 'logo.png' ke folder proyek Anda
 nama_file_logo = "logo.png" 
 
 if os.path.exists(nama_file_logo):
-    # Jika file logo.png ada, tampilkan di atas menu radio
     st.sidebar.image(nama_file_logo, use_container_width=True)
 else:
-    # Jika belum ada logo, tampilkan ikon emotikon bawaan sebagai pengganti sementara
     st.sidebar.markdown("<h2 style='text-align: center;'>🥚 KANDANG JAYA</h2>", unsafe_allow_html=True)
 
 st.sidebar.divider()
@@ -120,7 +137,6 @@ if menu == "Dashboard":
         grand_total_pengeluaran = df_pengeluaran["jumlah"].sum() if not df_pengeluaran.empty else 0
         keuntungan_bersih = grand_total_pendapatan - grand_total_pengeluaran
         
-        # Tampilan Ringkasan Keuangan Utama
         c1, c2, c3 = st.columns(3)
         c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {grand_total_pendapatan:,}")
         c2.metric("💸 Total Pengeluaran", f"Rp {grand_total_pengeluaran:,}")
@@ -128,7 +144,6 @@ if menu == "Dashboard":
 
         st.divider()
         
-        # Ringkasan Stok Butir Telur
         st.subheader("📦 Total Produksi Telur")
         cx1, cx2, cx3 = st.columns(3)
         cx1.metric("🐔 Telur Ayam", f"{total_ayam:,} butir")
@@ -164,7 +179,6 @@ elif menu == "Input Produksi":
 
     with tab1:
         st.subheader("Input / Edit Produksi Harian")
-
         tanggal = st.date_input("Pilih Tanggal Produksi")
         str_tanggal = str(tanggal)
 
@@ -189,34 +203,20 @@ elif menu == "Input Produksi":
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
                 jam_wib = ambil_jam_wib()
-                conn.execute(
-                    """
-                    UPDATE produksi 
-                    SET ayam = ?, bebek = ?, puyuh = ?, jam = ?
-                    WHERE tanggal = ?
-                    """,
-                    (ayam, bebek, puyuh, jam_wib, str_tanggal)
-                )
+                conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
                 conn.commit()
                 st.success(f"Data tanggal {str_tanggal} berhasil diperbarui pada jam {jam_wib} WIB!")
                 st.rerun()
         else:
             if st.button("📥 Simpan Data Produksi Baru"):
                 jam_wib = ambil_jam_wib()
-                conn.execute(
-                    """
-                    INSERT INTO produksi (tanggal, jam, ayam, bebek, puyuh) 
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (str_tanggal, jam_wib, ayam, bebek, puyuh)
-                )
+                conn.execute("INSERT INTO produksi (tanggal, jam, ayam, bebek, puyuh) VALUES (?, ?, ?, ?, ?)", (str_tanggal, jam_wib, ayam, bebek, puyuh))
                 conn.commit()
                 st.success(f"Data baru berhasil disimpan pada jam {jam_wib} WIB.")
                 st.rerun()
 
     with tab2:
         st.subheader("Input Pengeluaran Operasional / Pakan")
-        
         tgl_pengeluaran = st.date_input("Tanggal Pengeluaran")
         keterangan = st.text_input("Keterangan Pengeluaran (Contoh: Beli pakan ayam, obat bebek)")
         jumlah_biaya = st.number_input("Jumlah Biaya (Rp)", min_value=0.0, step=500.0)
@@ -228,19 +228,13 @@ elif menu == "Input Produksi":
                 st.error("Jumlah biaya harus lebih besar dari 0!")
             else:
                 jam_wib_biaya = ambil_jam_wib()
-                conn.execute(
-                    """
-                    INSERT INTO pengeluaran (tanggal, jam, keterangan, jumlah)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (str(tgl_pengeluaran), jam_wib_biaya, keterangan, jumlah_biaya)
-                )
+                conn.execute("INSERT INTO pengeluaran (tanggal, jam, keterangan, jumlah) VALUES (?, ?, ?, ?)", (str(tgl_pengeluaran), jam_wib_biaya, keterangan, jumlah_biaya))
                 conn.commit()
                 st.success(f"Pengeluaran berhasil dicatat pada jam {jam_wib_biaya} WIB!")
                 st.rerun()
 
 # ==========================
-# 3. DATA PRODUKSI
+# 3. DATA PRODUKSI (DENGAN PRINT & FILTER)
 # ==========================
 
 elif menu == "Data Produksi":
@@ -268,31 +262,24 @@ elif menu == "Data Produksi":
         else:
             df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
-            st.dataframe(
-                df.drop(columns=["id"], errors="ignore"),
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(df.drop(columns=["id"], errors="ignore"), use_container_width=True, hide_index=True)
 
-            excel = "rekap_telur_filter.xlsx"
-            df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
-
-            with open(excel, "rb") as file:
-                st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx")
+            # Baris Tombol Aksi (Download & Print)
+            btn_col1, btn_col2 = st.columns([1, 5])
+            with btn_col1:
+                # Tombol Cetak / Print Laporan
+                if st.button("🖨️ Cetak / Print Laporan", type="secondary"):
+                    st.markdown("<script>window.print();</script>", unsafe_allow_html=True)
+            with btn_col2:
+                excel = "rekap_telur_filter.xlsx"
+                df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
+                with open(excel, "rb") as file:
+                    st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx")
         
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
-        
-        pilihan_data = {
-            row["id"]: f"{row['tanggal']} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]"
-            for _, row in df_all.iterrows()
-        }
-        
-        id_terpilih = st.selectbox(
-            "Pilih baris data produksi yang ingin dihapus permanen:",
-            options=list(pilihan_data.keys()),
-            format_func=lambda x: pilihan_data[x]
-        )
+        pilihan_data = {row["id"]: f"{row['tanggal']} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]" for _, row in df_all.iterrows()}
+        id_terpilih = st.selectbox("Pilih baris data produksi yang ingin dihapus permanen:", options=list(pilihan_data.keys()), format_func=lambda x: pilihan_data[x])
         
         if st.button("Hapus Permanen", type="primary"):
             conn.execute("DELETE FROM produksi WHERE id = ?", (id_terpilih,))
@@ -301,7 +288,7 @@ elif menu == "Data Produksi":
             st.rerun()
 
 # ==========================
-# 4. DATA PENDAPATAN
+# 4. DATA PENDAPATAN (DENGAN PRINT & FILTER)
 # ==========================
 
 elif menu == "Data Pendapatan":
@@ -332,42 +319,34 @@ elif menu == "Data Pendapatan":
             df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
             df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
             df_dana["Uang Puyuh (Rp)"] = df_dana["puyuh"] * HARGA_PUYUH
-            df_dana["Total Pendapatan (Rp)"] = (
-                df_dana["Uang Ayam (Rp)"] + 
-                df_dana["Uang Bebek (Rp)"] + 
-                df_dana["Uang Puyuh (Rp)"]
-            )
+            df_dana["Total Pendapatan (Rp)"] = (df_dana["Uang Ayam (Rp)"] + df_dana["Uang Bebek (Rp)"] + df_dana["Uang Puyuh (Rp)"])
 
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
-            excel_keuangan = "rekap_pendapatan_filter.xlsx"
-            df_tabel_uang.to_excel(excel_keuangan, index=False)
-
-            with open(excel_keuangan, "rb") as file_keuangan:
-                st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx")
+            # Baris Tombol Aksi (Download & Print)
+            btn_col1, btn_col2 = st.columns([1, 5])
+            with btn_col1:
+                if st.button("🖨️ Cetak / Print Laporan ", type="secondary"):
+                    st.markdown("<script>window.print();</script>", unsafe_allow_html=True)
+            with btn_col2:
+                excel_keuangan = "rekap_pendapatan_filter.xlsx"
+                df_tabel_uang.to_excel(excel_keuangan, index=False)
+                with open(excel_keuangan, "rb") as file_keuangan:
+                    st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx")
 
             st.divider()
             st.subheader("📊 Grafik Distribusi Keuangan Harian")
-
             fig_dana = px.line(
-                df_dana,
-                x="tanggal",
-                y=["Uang Ayam (Rp)", "Uang Bebek (Rp)", "Uang Puyuh (Rp)", "Total Pendapatan (Rp)"],
-                markers=True,
-                title="Tren Pendapatan Omzet Rupiah",
-                color_discrete_map={
-                    "Uang Ayam (Rp)": "#8B4513",
-                    "Uang Bebek (Rp)": "#87CEFA",
-                    "Uang Puyuh (Rp)": "#D3D3D3",
-                    "Total Pendapatan (Rp)": "#00FF00"
-                }
+                df_dana, x="tanggal", y=["Uang Ayam (Rp)", "Uang Bebek (Rp)", "Uang Puyuh (Rp)", "Total Pendapatan (Rp)"],
+                markers=True, title="Tren Pendapatan Omzet Rupiah",
+                color_discrete_map={"Uang Ayam (Rp)": "#8B4513", "Uang Bebek (Rp)": "#87CEFA", "Uang Puyuh (Rp)": "#D3D3D3", "Total Pendapatan (Rp)": "#00FF00"}
             )
             fig_dana.update_layout(template="plotly_white")
             st.plotly_chart(fig_dana, use_container_width=True)
 
 # ==========================
-# 5. DATA PENGELUARAN
+# 5. DATA PENGELUARAN (DENGAN PRINT & FILTER)
 # ==========================
 
 elif menu == "Data Pengeluaran":
@@ -393,31 +372,23 @@ elif menu == "Data Pengeluaran":
         if df_keluar_filtered.empty:
             st.info("Tidak ada data pengeluaran pada rentang tanggal tersebut.")
         else:
-            st.dataframe(
-                df_keluar_filtered.drop(columns=["id"], errors="ignore"),
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(df_keluar_filtered.drop(columns=["id"], errors="ignore"), use_container_width=True, hide_index=True)
 
-            excel_keluar = "rekap_pengeluaran_filter.xlsx"
-            df_keluar_filtered.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
-
-            with open(excel_keluar, "rb") as file_keluar:
-                st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx")
+            # Baris Tombol Aksi (Download & Print)
+            btn_col1, btn_col2 = st.columns([1, 5])
+            with btn_col1:
+                if st.button("🖨️ Cetak / Print Laporan  ", type="secondary"):
+                    st.markdown("<script>window.print();</script>", unsafe_allow_html=True)
+            with btn_col2:
+                excel_keluar = "rekap_pengeluaran_filter.xlsx"
+                df_keluar_filtered.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
+                with open(excel_keluar, "rb") as file_keluar:
+                    st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx")
 
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
-
-        pilihan_keluar = {
-            row["id"]: f"{row['tanggal']} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]"
-            for _, row in df_keluar_all.iterrows()
-        }
-
-        id_keluar_terpilih = st.selectbox(
-            "Pilih nota pengeluaran yang ingin dihapus:",
-            options=list(pilihan_keluar.keys()),
-            format_func=lambda x: pilihan_keluar[x]
-        )
+        pilihan_keluar = {row["id"]: f"{row['tanggal']} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]" for _, row in df_keluar_all.iterrows()}
+        id_keluar_terpilih = st.selectbox("Pilih nota pengeluaran yang ingin dihapus:", options=list(pilihan_keluar.keys()), format_func=lambda x: pilihan_keluar[x])
 
         if st.button("Hapus Nota", type="primary"):
             conn.execute("DELETE FROM pengeluaran WHERE id = ?", (id_keluar_terpilih,))
