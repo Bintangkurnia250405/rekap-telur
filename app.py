@@ -3,7 +3,7 @@ import pandas as pd
 import sqlite3
 import plotly.express as px
 from database import conn
-from datetime import datetime
+from datetime import datetime, timedelta  # <-- Ditambahkan timedelta untuk konversi WIB
 
 st.set_page_config(
     page_title="Rekap Produksi Telur",
@@ -13,7 +13,7 @@ st.set_page_config(
 
 st.title("🥚 Rekap Produksi, Pendapatan & Pengeluaran Telur")
 
-# Pilihan menu (Ditambahkan menu Data Pengeluaran)
+# Pilihan menu
 menu = st.sidebar.radio(
     "Menu",
     [
@@ -21,7 +21,7 @@ menu = st.sidebar.radio(
         "Input Produksi",
         "Data Produksi",
         "Data Pendapatan",
-        "Data Pengeluaran"  # <--- Menu Baru
+        "Data Pengeluaran"
     ]
 )
 
@@ -29,6 +29,12 @@ menu = st.sidebar.radio(
 HARGA_AYAM = 1500
 HARGA_BEBEK = 3000
 HARGA_PUYUH = 500
+
+# Fungsi pembantu untuk mengambil jam WIB saat ini (UTC +7)
+def ambil_jam_wib():
+    waktu_utc = datetime.utcnow()
+    waktu_wib = waktu_utc + timedelta(hours=7)
+    return waktu_wib.strftime("%H:%M:%S")
 
 # Buat tabel pengeluaran otomatis jika belum ada di database
 conn.execute("""
@@ -141,33 +147,32 @@ elif menu == "Input Produksi":
         bebek = st.number_input("Telur Bebek (Butir)", min_value=0, value=default_bebek)
         puyuh = st.number_input("Telur Puyuh (Butir)", min_value=0, value=default_puyuh)
 
-        # Jam otomatis saat tombol diklik
-        jam_sekarang = datetime.now().strftime("%H:%M:%S")
-
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
+                jam_wib = ambil_jam_wib()  # Dapatkan waktu Indonesia saat tombol diklik
                 conn.execute(
                     """
                     UPDATE produksi 
                     SET ayam = ?, bebek = ?, puyuh = ?, jam = ?
                     WHERE tanggal = ?
                     """,
-                    (ayam, bebek, puyuh, jam_sekarang, str_tanggal)
+                    (ayam, bebek, puyuh, jam_wib, str_tanggal)
                 )
                 conn.commit()
-                st.success(f"Data tanggal {str_tanggal} berhasil diperbarui pada jam {jam_sekarang}!")
+                st.success(f"Data tanggal {str_tanggal} berhasil diperbarui pada jam {jam_wib} WIB!")
                 st.rerun()
         else:
             if st.button("📥 Simpan Data Produksi Baru"):
+                jam_wib = ambil_jam_wib()  # Dapatkan waktu Indonesia saat tombol diklik
                 conn.execute(
                     """
                     INSERT INTO produksi (tanggal, jam, ayam, bebek, puyuh) 
                     VALUES (?, ?, ?, ?, ?)
                     """,
-                    (str_tanggal, jam_sekarang, ayam, bebek, puyuh)
+                    (str_tanggal, jam_wib, ayam, bebek, puyuh)
                 )
                 conn.commit()
-                st.success(f"Data baru berhasil disimpan pada jam {jam_sekarang}.")
+                st.success(f"Data baru berhasil disimpan pada jam {jam_wib} WIB.")
                 st.rerun()
 
     with tab2:
@@ -177,23 +182,22 @@ elif menu == "Input Produksi":
         keterangan = st.text_input("Keterangan Pengeluaran (Contoh: Beli pakan ayam, obat bebek)")
         jumlah_biaya = st.number_input("Jumlah Biaya (Rp)", min_value=0.0, step=500.0)
         
-        jam_input_biaya = datetime.now().strftime("%H:%M:%S")
-        
         if st.button("📥 Simpan Nota Pengeluaran", type="secondary"):
             if keterangan == "":
                 st.error("Keterangan tidak boleh kosong!")
             elif jumlah_biaya <= 0:
                 st.error("Jumlah biaya harus lebih besar dari 0!")
             else:
+                jam_wib_biaya = ambil_jam_wib()  # Dapatkan waktu Indonesia saat tombol diklik
                 conn.execute(
                     """
                     INSERT INTO pengeluaran (tanggal, jam, keterangan, jumlah)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (str(tgl_pengeluaran), jam_input_biaya, keterangan, jumlah_biaya)
+                    (str(tgl_pengeluaran), jam_wib_biaya, keterangan, jumlah_biaya)
                 )
                 conn.commit()
-                st.success(f"Pengeluaran berhasil dicatat pada jam {jam_input_biaya}!")
+                st.success(f"Pengeluaran berhasil dicatat pada jam {jam_wib_biaya} WIB!")
                 st.rerun()
 
 # ==========================
@@ -212,7 +216,6 @@ elif menu == "Data Produksi":
     else:
         df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
-        # Menampilkan kolom Jam agar orang tua tahu kapan pengisian terakhir dilakukan
         st.dataframe(
             df.drop(columns=["id"], errors="ignore"),
             use_container_width=True,
@@ -241,103 +244,3 @@ elif menu == "Data Produksi":
         
         if st.button("Hapus Permanen", type="primary"):
             conn.execute("DELETE FROM produksi WHERE id = ?", (id_terpilih,))
-            conn.commit()
-            st.success("Data produksi berhasil dihapus!")
-            st.rerun()
-
-# ==========================
-# DATA PENDAPATAN
-# ==========================
-
-elif menu == "Data Pendapatan":
-    st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
-
-    df_dana = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn) # Menggunakan database produksi lengkap dengan kolom jam
-
-    if df_dana.empty:
-        st.info("Belum ada data transaksi keuangan.")
-    else:
-        df_dana = df_dana.sort_values(by="tanggal").reset_index(drop=True)
-
-        df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
-        df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
-        df_dana["Uang Puyuh (Rp)"] = df_dana["puyuh"] * HARGA_PUYUH
-        df_dana["Total Pendapatan (Rp)"] = (
-            df_dana["Uang Ayam (Rp)"] + 
-            df_dana["Uang Bebek (Rp)"] + 
-            df_dana["Uang Puyuh (Rp)"]
-        )
-
-        df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
-
-        st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
-
-        excel_keuangan = "rekap_pendapatan.xlsx"
-        df_tabel_uang.to_excel(excel_keuangan, index=False)
-
-        with open(excel_keuangan, "rb") as file_keuangan:
-            st.download_button("⬇ Download Excel Pendapatan", file_keuangan, file_name=excel_keuangan)
-
-        st.divider()
-        st.subheader("📊 Grafik Distribusi Keuangan Harian")
-
-        fig_dana = px.line(
-            df_dana,
-            x="tanggal",
-            y=["Uang Ayam (Rp)", "Uang Bebek (Rp)", "Uang Puyuh (Rp)", "Total Pendapatan (Rp)"],
-            markers=True,
-            title="Tren Pendapatan Omzet Rupiah",
-            color_discrete_map={
-                "Uang Ayam (Rp)": "#8B4513",
-                "Uang Bebek (Rp)": "#87CEFA",
-                "Uang Puyuh (Rp)": "#D3D3D3",
-                "Total Pendapatan (Rp)": "#00FF00"
-            }
-        )
-        fig_dana.update_layout(template="plotly_white")
-        st.plotly_chart(fig_dana, use_container_width=True)
-
-# ==========================
-# DATA PENGELUARAN (MENU BARU)
-# ==========================
-
-elif menu == "Data Pengeluaran":
-    st.subheader("💸 Laporan Pengeluaran Operasional / Pembelian Pakan")
-
-    df_keluar = pd.read_sql("SELECT id, tanggal, jam, keterangan, jumlah AS 'Jumlah (Rp)' FROM pengeluaran ORDER BY tanggal DESC", conn)
-
-    if df_keluar.empty:
-        st.info("Belum ada catatan pengeluaran biaya.")
-    else:
-        # Tampilkan tabel pengeluaran operasional beserta jam inputnya
-        st.dataframe(
-            df_keluar.drop(columns=["id"], errors="ignore"),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        excel_keluar = "rekap_pengeluaran.xlsx"
-        df_keluar.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
-
-        with open(excel_keluar, "rb") as file_keluar:
-            st.download_button("⬇ Download Excel Pengeluaran", file_keluar, file_name=excel_keluar)
-
-        st.divider()
-        st.subheader("🗑️ Hapus Nota Pengeluaran")
-
-        pilihan_keluar = {
-            row["id"]: f"{row['tanggal']} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]"
-            for _, row in df_keluar.iterrows()
-        }
-
-        id_keluar_terpilih = st.selectbox(
-            "Pilih nota pengeluaran yang ingin dihapus:",
-            options=list(pilihan_keluar.keys()),
-            format_func=lambda x: pilihan_keluar[x]
-        )
-
-        if st.button("Hapus Nota", type="primary"):
-            conn.execute("DELETE FROM pengeluaran WHERE id = ?", (id_keluar_terpilih,))
-            conn.commit()
-            st.success("Nota pengeluaran berhasil dihapus!")
-            st.rerun()
