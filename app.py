@@ -252,7 +252,7 @@ elif menu == "Data Produksi":
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
-    df_dana = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROMBox produksi", conn) # Menggunakan database produksi lengkap dengan kolom jam
+    df_dana = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn) # Menggunakan database produksi lengkap dengan kolom jam
 
     if df_dana.empty:
         st.info("Belum ada data transaksi keuangan.")
