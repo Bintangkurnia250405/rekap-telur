@@ -53,6 +53,8 @@ try:
     conn.execute("SELECT jam FROM produksi LIMIT 1")
 except sqlite3.OperationalError:
     conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
+    # Jika baris di atas error saat dijalankan, ganti ke standar:
+    # conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
     conn.commit()
 
 # ==========================
@@ -131,8 +133,6 @@ elif menu == "Input Produksi":
 
         cursor = conn.cursor()
         cursor.execute("SELECT ayam, bebek, puyuh FROM produksi WHERE tanggal = ?", (str_tanggal,))
-        # Jika database Anda sudah diperbaiki dari FROM, gunakan baris di bawah ini:
-        cursor.execute("SELECT ayam, bebek, puyuh FROM produksi WHERE tanggal = ?", (str_tanggal,))
         data_ada = cursor.fetchone()
 
         if data_ada:
@@ -203,42 +203,60 @@ elif menu == "Input Produksi":
                 st.rerun()
 
 # ==========================
-# 3. DATA PRODUKSI
+# 3. DATA PRODUKSI (DENGAN FILTER TANGGAL)
 # ==========================
 
 elif menu == "Data Produksi":
+    st.subheader("📦 Data Rekap Produksi Telur Harian")
 
-    df = pd.read_sql(
-        "SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC",
-        conn
-    )
+    # Ambil semua data terlebih dahulu untuk menentukan range tanggal default
+    df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
 
-    if df.empty:
-        st.warning("Belum ada data.")
+    if df_all.empty:
+        st.warning("Belum ada data produksi.")
     else:
-        df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
+        # Tambahkan Filter Rentang Tanggal di bagian atas halaman
+        st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
+        col_tgl1, col_tgl2 = st.columns(2)
+        
+        with col_tgl1:
+            tgl_mulai = st.date_input("Dari Tanggal", value=datetime.strptime(df_all["tanggal"].min(), "%Y-%m-%d").date())
+        with col_tgl2:
+            tgl_selesai = st.date_input("Sampai Tanggal", value=datetime.strptime(df_all["tanggal"].max(), "%Y-%m-%d").date())
 
-        st.dataframe(
-            df.drop(columns=["id"], errors="ignore"),
-            use_container_width=True,
-            hide_index=True
-        )
+        # Filter dataframe berdasarkan tanggal yang dipilih
+        df_all["tanggal_dt"] = pd.to_datetime(df_all["tanggal"]).dt.date
+        df = df_all[(df_all["tanggal_dt"] >= tgl_mulai) & (df_all["tanggal_dt"] <= tgl_selesai)].copy()
+        df = df.drop(columns=["tanggal_dt"])
 
-        excel = "rekap_telur.xlsx"
-        df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
+        if df.empty:
+            st.info("Tidak ada data produksi pada rentang tanggal tersebut.")
+        else:
+            df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
-        with open(excel, "rb") as file:
-            st.download_button("⬇ Download Excel Produksi", file, file_name=excel)
+            # Tampilkan tabel yang sudah terfilter
+            st.dataframe(
+                df.drop(columns=["id"], errors="ignore"),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # Buat file Excel dari data yang sudah terfilter saja
+            excel = "rekap_telur_filter.xlsx"
+            df.drop(columns=["id"], errors="ignore").to_excel(excel, index=False)
+
+            with open(excel, "rb") as file:
+                st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx")
         
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
         
         pilihan_data = {
             row["id"]: f"{row['tanggal']} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]"
-            for _, row in df.iterrows()
+            for _, row in df_all.iterrows()
         }
         
-        id_terpilih = st.selectbox(
+        id_terpilih = st.select(
             "Pilih baris data produksi yang ingin dihapus permanen:",
             options=list(pilihan_data.keys()),
             format_func=lambda x: pilihan_data[x]
@@ -251,90 +269,130 @@ elif menu == "Data Produksi":
             st.rerun()
 
 # ==========================
-# 4. DATA PENDAPATAN
+# 4. DATA PENDAPATAN (DENGAN FILTER TANGGAL)
 # ==========================
 
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
-    df_dana = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
+    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
+    # Jika database Anda sudah diperbaiki dari FROM, gunakan baris di bawah ini:
+    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
-    if df_dana.empty:
+    if df_dana_all.empty:
         st.info("Belum ada data transaksi keuangan.")
     else:
-        df_dana = df_dana.sort_values(by="tanggal").reset_index(drop=True)
+        df_dana_all = df_dana_all.sort_values(by="tanggal").reset_index(drop=True)
 
-        df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
-        df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
-        df_dana["Uang Puyuh (Rp)"] = df_dana["puyuh"] * HARGA_PUYUH
-        df_dana["Total Pendapatan (Rp)"] = (
-            df_dana["Uang Ayam (Rp)"] + 
-            df_dana["Uang Bebek (Rp)"] + 
-            df_dana["Uang Puyuh (Rp)"]
-        )
+        # Tambahkan Filter Rentang Tanggal
+        st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
+        col_tgl1, col_tgl2 = st.columns(2)
+        
+        with col_tgl1:
+            tgl_mulai = st.date_input("Dari Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].min(), "%Y-%m-%d").date())
+        with col_tgl2:
+            tgl_selesai = st.date_input("Sampai Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].max(), "%Y-%m-%d").date())
 
-        df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
+        # Filter data berdasarkan tanggal
+        df_dana_all["tanggal_dt"] = pd.to_datetime(df_dana_all["tanggal"]).dt.date
+        df_dana = df_dana_all[(df_dana_all["tanggal_dt"] >= tgl_mulai) & (df_dana_all["tanggal_dt"] <= tgl_selesai)].copy()
+        df_dana = df_dana.drop(columns=["tanggal_dt"])
 
-        st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
+        if df_dana.empty:
+            st.info("Tidak ada data pendapatan pada rentang tanggal tersebut.")
+        else:
+            df_dana["Uang Ayam (Rp)"] = df_dana["ayam"] * HARGA_AYAM
+            df_dana["Uang Bebek (Rp)"] = df_dana["bebek"] * HARGA_BEBEK
+            df_dana["Uang Puyuh (Rp)"] = df_dana["puyuh"] * HARGA_PUYUH
+            df_dana["Total Pendapatan (Rp)"] = (
+                df_dana["Uang Ayam (Rp)"] + 
+                df_dana["Uang Bebek (Rp)"] + 
+                df_dana["Uang Puyuh (Rp)"]
+            )
 
-        excel_keuangan = "rekap_pendapatan.xlsx"
-        df_tabel_uang.to_excel(excel_keuangan, index=False)
+            df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
 
-        with open(excel_keuangan, "rb") as file_keuangan:
-            st.download_button("⬇ Download Excel Pendapatan", file_keuangan, file_name=excel_keuangan)
+            # Tampilkan tabel terfilter
+            st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
-        st.divider()
-        st.subheader("📊 Grafik Distribusi Keuangan Harian")
+            # Download data terfilter
+            excel_keuangan = "rekap_pendapatan_filter.xlsx"
+            df_tabel_uang.to_excel(excel_keuangan, index=False)
 
-        fig_dana = px.line(
-            df_dana,
-            x="tanggal",
-            y=["Uang Ayam (Rp)", "Uang Bebek (Rp)", "Uang Puyuh (Rp)", "Total Pendapatan (Rp)"],
-            markers=True,
-            title="Tren Pendapatan Omzet Rupiah",
-            color_discrete_map={
-                "Uang Ayam (Rp)": "#8B4513",
-                "Uang Bebek (Rp)": "#87CEFA",
-                "Uang Puyuh (Rp)": "#D3D3D3",
-                "Total Pendapatan (Rp)": "#00FF00"
-            }
-        )
-        fig_dana.update_layout(template="plotly_white")
-        st.plotly_chart(fig_dana, use_container_width=True)
+            with open(excel_keuangan, "rb") as file_keuangan:
+                st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx")
+
+            st.divider()
+            st.subheader("📊 Grafik Distribusi Keuangan Harian")
+
+            fig_dana = px.line(
+                df_dana,
+                x="tanggal",
+                y=["Uang Ayam (Rp)", "Uang Bebek (Rp)", "Uang Puyuh (Rp)", "Total Pendapatan (Rp)"],
+                markers=True,
+                title="Tren Pendapatan Omzet Rupiah",
+                color_discrete_map={
+                    "Uang Ayam (Rp)": "#8B4513",
+                    "Uang Bebek (Rp)": "#87CEFA",
+                    "Uang Puyuh (Rp)": "#D3D3D3",
+                    "Total Pendapatan (Rp)": "#00FF00"
+                }
+            )
+            fig_dana.update_layout(template="plotly_white")
+            st.plotly_chart(fig_dana, use_container_width=True)
 
 # ==========================
-# 5. DATA PENGELUARAN
+# 5. DATA PENGELUARAN (DENGAN FILTER TANGGAL)
 # ==========================
 
 elif menu == "Data Pengeluaran":
     st.subheader("💸 Laporan Pengeluaran Operasional / Pembelian Pakan")
 
-    df_keluar = pd.read_sql("SELECT id, tanggal, jam, keterangan, jumlah AS 'Jumlah (Rp)' FROM pengeluaran ORDER BY tanggal DESC", conn)
+    df_keluar_all = pd.read_sql("SELECT id, tanggal, jam, keterangan, jumlah AS 'Jumlah (Rp)' FROM pengeluaran ORDER BY tanggal DESC", conn)
 
-    if df_keluar.empty:
+    if df_keluar_all.empty:
         st.info("Belum ada catatan pengeluaran biaya.")
     else:
-        st.dataframe(
-            df_keluar.drop(columns=["id"], errors="ignore"),
-            use_container_width=True,
-            hide_index=True
-        )
+        # Tambahkan Filter Rentang Tanggal
+        st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
+        col_tgl1, col_tgl2 = st.columns(2)
+        
+        with col_tgl1:
+            tgl_mulai = st.date_input("Dari Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].min(), "%Y-%m-%d").date())
+        with col_tgl2:
+            tgl_selesai = st.date_input("Sampai Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].max(), "%Y-%m-%d").date())
 
-        excel_keluar = "rekap_pengeluaran.xlsx"
-        df_keluar.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
+        # Filter data berdasarkan tanggal
+        df_keluar_all["tanggal_dt"] = pd.to_datetime(df_keluar_all["tanggal"]).dt.date
+        df_keluar_filtered = df_keluar_all[(df_keluar_all["tanggal_dt"] >= tgl_mulai) & (df_keluar_all["tanggal_dt"] <= tgl_selesai)].copy()
+        df_keluar_filtered = df_keluar_filtered.drop(columns=["tanggal_dt"])
 
-        with open(excel_keluar, "rb") as file_keluar:
-            st.download_button("⬇ Download Excel Pengeluaran", file_keluar, file_name=excel_keluar)
+        if df_keluar_filtered.empty:
+            st.info("Tidak ada data pengeluaran pada rentang tanggal tersebut.")
+        else:
+            # Tampilkan tabel terfilter
+            st.dataframe(
+                df_keluar_filtered.drop(columns=["id"], errors="ignore"),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # Download data terfilter
+            excel_keluar = "rekap_pengeluaran_filter.xlsx"
+            df_keluar_filtered.drop(columns=["id"], errors="ignore").to_excel(excel_keluar, index=False)
+
+            with open(excel_keluar, "rb") as file_keluar:
+                st.download_button(f"⬇ Download Excel ({tgl_mulai} s/d {tgl_selesai})", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx")
 
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
 
         pilihan_keluar = {
             row["id"]: f"{row['tanggal']} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]"
-            for _, row in df_keluar.iterrows()
+            for _, row in df_keluar_all.iterrows()
         }
 
-        id_keluar_terpilih = st.selectbox(
+        id_keluar_terpilih = st.select(
             "Pilih nota pengeluaran yang ingin dihapus:",
             options=list(pilihan_keluar.keys()),
             format_func=lambda x: pilihan_keluar[x]
