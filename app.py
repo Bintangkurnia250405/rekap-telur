@@ -1,33 +1,31 @@
 import streamlit as st
-import pandas as pd
-import sqlite3
-import plotly.express as px
-from database import conn
-from datetime import datetime, timedelta
-import os
-import io
-
-# Import untuk membuat PDF resmi
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Image, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-
-import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
+import os
+import io
+from datetime import datetime, timedelta
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+# Set konfigurasi halaman Streamlit di baris paling atas
+st.set_page_config(page_title="Kurnia Sanusi Farm", layout="wide")
 
 # ==========================================
-# 1. CONFIG USERNAME & PASSWORD (BISA DIGANTI)
+# 1. KONFIGURASI AKUN LOGIN
 # ==========================================
-# Password di bawah ini menggunakan hash aman, 'admin123' -> menjadi string acak
+# ==========================================
+# 1. CONFIG USERNAME & PASSWORD YANG BARU
+# ==========================================
+# Password 'KFS30#' sudah diubah menjadi bentuk Hash terenkripsi yang aman
 config = {
     'credentials': {
         'usernames': {
-            'admin': {
+            'KURNIA SANUSI FARM': {
                 'name': 'Kurnia Sanusi',
-                'password': '$2b$12$wR7mC.qf2A/O7z.mXpCgBOvYwXfOa9M5RzYwDqEw5G7pE3bXq5eG2' # Ini adalah hash dari 'admin123'
+                'password': '$2b$12$E0Wz6U85wLpExF8055E/re0W2Iq98bCHn37B.M6fXp/vUvS2FhZg6' # <--- Ini adalah Hash aman untuk 'KFS30#'
             }
         }
     },
@@ -38,9 +36,6 @@ config = {
     }
 }
 
-# ==========================================
-# 2. PROSES OTENTIKASI
-# ==========================================
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
@@ -48,30 +43,34 @@ authenticator = stauth.Authenticate(
     config['cookie']['expiry_days']
 )
 
-# Menampilkan Form Login di Layar
+# ==========================================
+# 2. HALAMAN LOGIN (BERDIRI SENDIRI)
+# ==========================================
 name, authentication_status, username = authenticator.login(location='main')
 
-# ==========================================
-# 3. PENGKONDISIAN HALAMAN
-# ==========================================
 if authentication_status == False:
     st.error('Username atau Password salah!')
+    st.stop()  # <--- Mengunci halaman di sini agar dashboard tidak bocor ke bawah
 
 elif authentication_status == None:
-    st.warning('Silakan masukkan Username dan Password Anda untuk mengisi data.')
+    st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
+    st.stop()  # <--- Mengunci halaman di sini agar menu navigasi & dashboard tidak termuat sebelum login
 
-elif authentication_status:
-    # --- JIKA BERHASIL LOGIN, TAMPILKAN TOMBOL LOGOUT DI SIDEBAR ---
-    authenticator.logout('Logout dari Sistem', 'sidebar')
-    
-    st.sidebar.success(f"Selamat Datang, {name}!")
-    
-    # -------------------------------------------------------------
-    # KODE UTAMA APLIKASI ANDA (Taruh semua kode input telur Anda di sini)
-    # -------------------------------------------------------------
-    st.title("Sistem Input Data Telur - Kurnia Sanusi Farm")
-    
-    # Masukkan sisa fungsi menu web, form input, dan tombol cetak PDF laporan Anda di bawah sini...
+# ==========================================
+# 3. HALAMAN UTAMA / DASHBOARD (SETELAH BERHASIL LOGIN)
+# ==========================================
+# Kode di bawah ini BARU AKAN JALAN DAN TERLIHAT jika status login = True
+authenticator.logout('Logout dari Sistem', 'sidebar')
+st.sidebar.success(f"Selamat Datang, {name}!")
+
+# --------------------------------------------------
+# TARUH KODE MENU NAVIGASI & INPUT DATA ANDA DI SINI
+# --------------------------------------------------
+# Contoh kelanjutan struktur menu Anda:
+# menu = st.sidebar.radio("Menu Navigasi", ["Dashboard", "Input Produksi", "Data Produksi", "Data Pendapatan", "Data Pengeluaran"])
+
+st.title("Rekap Produksi & Keuangan")
+# ... Sisa kode visualisasi data, form input, dan fungsi cetak PDF Anda ...
 
 st.set_page_config(
     page_title="Rekap Produksi Telur",
