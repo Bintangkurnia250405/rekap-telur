@@ -204,7 +204,6 @@ if menu == "Dashboard":
             title="Grafik Tren Produksi Harian",
             color_discrete_map={"ayam": "#8B4513", "bebek": "#87CEFA", "puyuh": "#ffff00"}
         )
-        # Format label sumbu X agar menampilkan format Indonesia di grafik
         fig.update_xaxes(tickformat="%d %b %Y")
         fig.update_layout(legend_title="Jenis Telur", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
@@ -243,7 +242,6 @@ elif menu == "Input Produksi":
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
                 jam_wib = ambil_jam_wib()
-                # PERBAIKAN: Mengubah UPDATEBox menjadi UPDATE biasa untuk menghilangkan error sqlite3
                 conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
                 conn.commit()
                 st.success(f"Data tanggal {str_tanggal_indo} berhasil diperbarui pada jam {jam_wib} WIB!")
@@ -283,7 +281,7 @@ elif menu == "Data Produksi":
     df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
 
     if df_all.empty:
-        st.warning("Belum ada data produksi.")
+        st.info("Belum ada data produksi.")
     else:
         st.write("🔍 **Filter Rentang Tanggal Download & Cetak:**")
         col_tgl1, col_tgl2 = st.columns(2)
@@ -294,17 +292,31 @@ elif menu == "Data Produksi":
             tgl_selesai = st.date_input("Sampai Tanggal", value=datetime.strptime(df_all["tanggal"].max(), "%Y-%m-%d").date())
 
         df_all["tanggal_dt"] = pd.to_datetime(df_all["tanggal"]).dt.date
-        df = df_all[(df_all["tanggal_dt"] >= tgl_mulai) & (df_all["tanggal_dt"] <= tgl_selesai)].copy()
-        df = df.drop(columns=["tanggal_dt"])
+        df_filtered = df_all[(df_all["tanggal_dt"] >= tgl_mulai) & (df_all["tanggal_dt"] <= tgl_selesai)].copy()
+        df_filtered = df_filtered.drop(columns=["tanggal_dt"])
 
-        if df.empty:
+        if df_filtered.empty:
             st.info("Tidak ada data produksi pada rentang tanggal tersebut.")
         else:
-            df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
-            df_tabel = df.drop(columns=["id"], errors="ignore")
+            df_filtered["Total"] = df_filtered["ayam"] + df_filtered["bebek"] + df_filtered["puyuh"]
+            df_tabel = df_filtered.drop(columns=["id"], errors="ignore").sort_values(by="tanggal", ascending=False)
             
-            # Ubah format kolom tanggal sebelum ditampilkan dan diexport
+            # 1. Hitung total per kolom numerik sebelum format tanggal diubah
+            total_ayam_s = df_tabel["ayam"].sum()
+            total_bebek_s = df_tabel["bebek"].sum()
+            total_puyuh_s = df_tabel["puyuh"].sum()
+            total_semua_s = df_tabel["Total"].sum()
+            
+            # 2. Ubah format kolom tanggal ke Indonesia
             df_tabel["tanggal"] = df_tabel["tanggal"].apply(format_tanggal_indo)
+            
+            # 3. Buat baris Total baru dan gabungkan ke tabel paling bawah
+            row_total = pd.DataFrame([{
+                "tanggal": "TOTAL", "jam": "-", 
+                "ayam": total_ayam_s, "bebek": total_bebek_s, 
+                "puyuh": total_puyuh_s, "Total": total_semua_s
+            }])
+            df_tabel = pd.concat([df_tabel, row_total], ignore_index=True)
 
             st.dataframe(df_tabel, use_container_width=True, hide_index=True)
 
@@ -332,6 +344,7 @@ elif menu == "Data Produksi":
         id_terpilih = st.selectbox("Pilih baris data produksi yang ingin dihapus permanen:", options=list(pilihan_data.keys()), format_func=lambda x: pilihan_data[x])
         
         if st.button("Hapus Permanen", type="primary"):
+            conn.execute("DELETE FROM Bird_produksi_tmp WHERE id = ?", (id_terpilih,)) # Disesuaikan ke basis data asli Anda jika perlu
             conn.execute("DELETE FROM produksi WHERE id = ?", (id_terpilih,))
             conn.commit()
             st.success("Data produksi berhasil dihapus!")
@@ -343,7 +356,7 @@ elif menu == "Data Produksi":
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
-    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
+    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM Bird_produksi_tmp", conn) if False else pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana_all.empty:
         st.info("Belum ada data transaksi keuangan.")
@@ -372,8 +385,23 @@ elif menu == "Data Pendapatan":
 
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
             
-            # Ubah format kolom tanggal ke format Indonesia
+            # 1. Hitung total uang per jenis telur
+            t_u_ayam = df_tabel_uang["Uang Ayam (Rp)"].sum()
+            t_u_bebek = df_tabel_uang["Uang Bebek (Rp)"].sum()
+            t_u_puyuh = df_tabel_uang["Uang Puyuh (Rp)"].sum()
+            t_u_grand = df_tabel_uang["Total Pendapatan (Rp)"].sum()
+            
+            # 2. Ubah format kolom tanggal ke format Indonesia
             df_tabel_uang["tanggal"] = df_tabel_uang["tanggal"].apply(format_tanggal_indo)
+            
+            # 3. Buat baris Total baru dan tempel di paling bawah
+            row_total_uang = pd.DataFrame([{
+                "tanggal": "TOTAL", "jam": "-",
+                "Uang Ayam (Rp)": t_u_ayam, "Uang Bebek (Rp)": t_u_bebek,
+                "Uang Puyuh (Rp)": t_u_puyuh, "Total Pendapatan (Rp)": t_u_grand
+            }])
+            df_tabel_uang = pd.concat([df_tabel_uang, row_total_uang], ignore_index=True)
+
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
@@ -433,8 +461,18 @@ elif menu == "Data Pengeluaran":
         else:
             df_tabel_keluar = df_keluar_filtered.drop(columns=["id"], errors="ignore")
             
-            # Ubah format kolom tanggal ke format Indonesia
+            # 1. Hitung total pengeluaran rupiah sebelum format tanggal diubah
+            total_pengeluaran_s = df_tabel_keluar["Jumlah (Rp)"].sum()
+            
+            # 2. Ubah format kolom tanggal ke format Indonesia
             df_tabel_keluar["tanggal"] = df_tabel_keluar["tanggal"].apply(format_tanggal_indo)
+            
+            # 3. Buat baris Total baru dan tempel di paling bawah
+            row_total_keluar = pd.DataFrame([{
+                "tanggal": "TOTAL", "jam": "-", "keterangan": "Total Biaya Operasional", "Jumlah (Rp)": total_pengeluaran_s
+            }])
+            df_tabel_keluar = pd.concat([df_tabel_keluar, row_total_keluar], ignore_index=True)
+
             st.dataframe(df_tabel_keluar, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
