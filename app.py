@@ -298,10 +298,10 @@ if menu == "Dashboard":
     st.markdown(
         """
         <div style="color: #31333F; font-family: sans-serif; line-height: 1.2;">
-            <div style="font-size: 22px; font-weight: 700;">
+            <div style="font-size: 25px; font-weight: 700;">
                 📊 Dashboard Analisis
             </div>
-            <div style="font-size: 22px; font-weight: 700; margin-left: 33px; margin-top: -5px;">
+            <div style="font-size: 25px; font-weight: 700; margin-left: 33px; margin-top: -5px;">
                 Kurnia Sanusi Farm
             </div>
         </div>
