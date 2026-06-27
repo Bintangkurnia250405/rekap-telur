@@ -15,7 +15,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # ==========================================
 st.set_page_config(
     page_title="Kurnia Sanusi Farm", 
-    page_icon="🥚",
+    page_icon="LogoLaporan.png",
     layout="wide"
 )
 
