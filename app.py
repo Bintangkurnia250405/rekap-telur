@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # KONEKSI DATABASE SQLITE
-conn = sqlite3.connect("rekap_telur.db", check_same_thread=False)
+conn = sqlite3.connect("data_telur.db", check_same_thread=False)
 
 # ==========================================
 # 1 & 2. HALAMAN LOGIN NATIVE (STABIL & AMAN)
