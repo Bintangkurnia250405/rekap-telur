@@ -365,56 +365,48 @@ if menu == "Dashboard":
             
             # === BAGIAN METRIK KEUANGAN ===
             st.subheader("💸 Laporan Keuangan")
+            c1, c2, c3 = st.columns(3)
             
-            # Hitung nilai absolut untuk format tampilan nominal angka
+            # Kolom 1 & 2 kembali menggunakan st.metric standar bawaan Streamlit
+            c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
+            c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
+                        
+            # BAGIAN KEUNTUNGAN BERSIH (KEMBALI KE BADGE HTML KUSTOM DENGAN UKURAN LEBIH BESAR)
             nominal_bersih_abs = abs(keuntungan_bersih)
             teks_rupiah = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
-            
-            # Menentukan warna box, teks, panah, dan status secara dinamis
+                        
             if keuntungan_bersih < 0:
                 warna_bg = "#fee2e2"      # Merah muda lembut
-                warna_teks = "#b91c1c"    # Merah tegas/tua (Hex disesuaikan agar kontras)
+                warna_teks = "#991b1b"    # Merah tua
                 simbol_panah = "↓"
                 status_teks = "Rugi"
                 tanda_minus = "-"
             else:
                 warna_bg = "#dcfce7"      # Hijau muda lembut
-                warna_teks = "#15803d"    # Hijau tegas/tua
+                warna_teks = "#166534"    # Hijau tua
                 simbol_panah = "↑"
                 status_teks = "Untung"
                 tanda_minus = ""
-
-            # Inject CSS yang aman untuk memberikan latar belakang pill badge pada metrik ketiga
-            st.markdown(f"""
-                <style>
-                /* Menargetkan khusus area nilai metrik di dalam class kustom kita */
-                .metrik-untung-rugi div[data-testid="stMetricContent"] {{
-                    background-color: {warna_bg} !important;
-                    padding: 6px 14px !important;
-                    border-radius: 10px !important;
-                    display: inline-block !important;
-                    margin-top: 4px !important;
-                }}
-                /* Memaksa warna teks angka & panah agar berubah sesuai kondisi untung/rugi */
-                .metrik-untung-rugi div[data-testid="stMetricValue"] {{
-                    color: {warna_teks} !important;
-                }}
-                </style>
+            
+            # Menampilkan judul kecil di kolom 3
+            c3.markdown("<p style='margin:0; font-size:14px; color:rgb(49, 51, 63); font-weight:400;'>📈 Keuntungan Bersih</p>", unsafe_allow_html=True)
+                        
+            # Menampilkan pill/badge dengan ukuran nominal font yang dinaikkan (font-size: 24px)
+            c3.markdown(f"""
+                <div style="
+                    display: inline-block; 
+                    background-color: {warna_bg}; 
+                    color: {warna_teks}; 
+                    padding: 6px 16px; 
+                    border-radius: 12px; 
+                    font-size: 24px; 
+                    font-weight: 700;
+                    margin-top: 4px;
+                ">
+                    {simbol_panah} {tanda_minus}{teks_rupiah} <span style="font-size: 16px; font-weight: 500;">({status_teks})</span>
+                </div>
             """, unsafe_allow_html=True)
-
-            # Membuat susunan 3 kolom metrik keuangan
-            c1, c2, c3 = st.columns(3)
             
-            # Kolom 1 dan Kolom 2 menggunakan gaya standar bawaan Streamlit
-            c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
-            c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
-            
-            # Kolom 3 dibungkus dengan container HTML agar CSS di atas aktif dan warna tidak hilang
-            with c3:
-                st.markdown('<div class="metrik-untung-rugi">', unsafe_allow_html=True)
-                st.metric("📈 Keuntungan Bersih", f"{simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})")
-                st.markdown('</div>', unsafe_allow_html=True)
-
             st.divider()
             
             # === BAGIAN METRIK PRODUKSI TELUR ===
