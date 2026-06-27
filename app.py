@@ -26,26 +26,26 @@ st.set_page_config(
 conn = sqlite3.connect("rekap_telur.db", check_same_thread=False)
 
 # ==========================================
-# 1. KONFIGURASI AKUN LOGIN (VERSI AUTO-HASH)
+# 1. KONFIGURASI AKUN LOGIN (VERSI FIX 0.3.2)
 # ==========================================
 
-# Kita buat hash yang valid secara langsung menggunakan Hasher bawaan pustaka
+# Pada versi 0.3.2, cara generate hash yang benar adalah menggunakan stauth.Hasher.hash_passwords()
 password_terbuka = ['KSF30']
-password_terhash = stauth.Hasher(password_terbuka).generate()
+password_terhash = stauth.Hasher.hash_passwords(password_terbuka)
 
 config = {
     'credentials': {
         'usernames': {
             'KSF': {
                 'name': 'Kurnia Sanusi',
-                'password': password_terhash[0]  # Mengambil hasil hash yang pasti cocok dengan 'KSF30'
+                'password': password_terhash[0]  # Mengambil hasil hash indeks ke-0
             }
         }
     },
     'cookie': {
         'expiry_days': 30,
-        'key': 'kurnia_farm_secret_cookie_v2', # Mengubah key cookie untuk reset paksa cookie lama
-        'name': 'kurnia_farm_auth_v2'
+        'key': 'kurnia_farm_secret_cookie_v3', # Mengubah key untuk membersihkan cookie rusak yang tersisa
+        'name': 'kurnia_farm_auth_v3'
     }
 }
 
@@ -61,10 +61,10 @@ authenticator = stauth.Authenticate(
 # 2. HALAMAN LOGIN (BERDIRI SENDIRI)
 # ==========================================
 
-# Pada versi 0.3.2, argumen pertama diisi teks judul form, argumen kedua adalah lokasi render-nya
-name, authentication_status, username = authenticator.login('Masuk ke Sistem', location='main')
+# Memanggil form login (mengembalikan nama, status, dan username)
+name, authentication_status, username = authenticator.login(location='main')
 
-# Logika kontrol halaman
+# Logika pengecekan login agar tidak langsung memblokir halaman di awal
 if authentication_status == False:
     st.error('Username atau Password salah!')
     st.stop() 
