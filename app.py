@@ -95,7 +95,7 @@ def ambil_jam_wib():
 # Fungsi Pembuat PDF Laporan dengan Kop Resmi Bergaris & Judul Rata Tengah Spasi 1
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=10, bottomMargin=30)
     story = []
     
     styles = getSampleStyleSheet()
@@ -190,7 +190,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     story.append(tabel_kop)
     
     # GARIS PEMBATAS SOLID
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 4 )
     garis_kop = Table([[""]], colWidths=[letter[0] - 60], rowHeights=[2])
     garis_kop.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#444444')),
