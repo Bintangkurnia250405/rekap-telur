@@ -294,7 +294,7 @@ conn.commit()
 # FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
-    st.title("🥚 Rekap Produksi & Keuangan")
+    st.title("💸 Rekap Keuangan")
     df = pd.read_sql("SELECT * FROM produksi", conn)
     df_pengeluaran = pd.read_sql("SELECT * FROM pengeluaran", conn)
 
@@ -319,11 +319,30 @@ if menu == "Dashboard":
         c1, c2, c3 = st.columns(3)
         c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
         c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
-        c3.metric("📈 Keuntungan Bersih", f"Rp {format_rupiah_kustom(keuntungan_bersih)}")
+        
+        # -----------------------------------------------------------------
+        # YANG DIUBAH / DITAMBAHKAN ADALAH BLOK DI BAWAH INI:
+        # -----------------------------------------------------------------
+        nominal_bersih_abs = abs(keuntungan_bersih) # Mengubah angka minus jadi positif untuk teks utama
+        teks_utama = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
+        
+        if keuntungan_bersih < 0:
+            status_delta = f"-Rp {format_rupiah_kustom(nominal_bersih_abs)} (Rugi)"
+        else:
+            status_delta = f"+Rp {format_rupiah_kustom(nominal_bersih_abs)} (Untung)"
+            
+        # Tampilkan metrik keuntungan bersih menggunakan parameter delta
+        c3.metric(
+            label="📈 Keuntungan Bersih", 
+            value=teks_utama, 
+            delta=status_delta, 
+            delta_color="normal" # Otomatis MERAH jika ada tanda minus (-) di delta, HIJAU jika tidak ada
+        )
+        # -----------------------------------------------------------------
 
         st.divider()
         
-        st.subheader("📦 Total Produksi Telur")
+        st.subheader("🥚 Total Produksi Telur")
         cx1, cx2, cx3 = st.columns(3)
         cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " butir")
         cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " butir")
