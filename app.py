@@ -363,9 +363,9 @@ if menu == "Dashboard":
         
         st.title("🥚 Laporan Produksi Telur")
         cx1, cx2, cx3 = st.columns(3)
-        cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " butir")
-        cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " butir")
-        cx3.metric("🐦 Telur Puyuh", f"{total_puyuh:,}".replace(",", ".") + " butir")
+        cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " Butir")
+        cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " Butir")
+        cx3.metric("🐦 Telur Puyuh", f"{total_puyuh:,}".replace(",", ".") + " Butir")
 
         st.divider()
 
