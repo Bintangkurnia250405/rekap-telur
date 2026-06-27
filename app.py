@@ -49,7 +49,7 @@ authenticator = stauth.Authenticate(
 )
 
 # Menampilkan Form Login di Layar
-name, authentication_status, username = authenticator.login('Login Peternakan', 'main')
+name, authentication_status, username = authenticator.login(location='main')
 
 # ==========================================
 # 3. PENGKONDISIAN HALAMAN
