@@ -92,7 +92,7 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan dengan Kop Baru & Gambar Transparan di Belakang Teks
+# Fungsi Pembuat PDF Laporan dengan Format Kop Surat Resmi (Logo Kiri, Teks Kanan)
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -100,34 +100,35 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     
     styles = getSampleStyleSheet()
     
+    # Penyesuaian gaya teks agar rata kiri (alignment=0) menyesuaikan format kop surat
     farm_style = ParagraphStyle(
         'FarmPDF',
         parent=styles['Heading1'],
         fontSize=18,
         leading=22,
         textColor=colors.HexColor('#8B4513'),
-        alignment=1,
-        spaceAfter=4
+        alignment=0, # 0 = Rata Kiri
+        spaceAfter=2
     )
     
     title_style = ParagraphStyle(
         'JudulPDF',
         parent=styles['Heading2'],
-        fontSize=13,
-        leading=16,
+        fontSize=12,
+        leading=15,
         textColor=colors.HexColor('#A0522D'),
-        alignment=1, 
-        spaceAfter=4
+        alignment=0, # 0 = Rata Kiri
+        spaceAfter=2
     )
     
     date_style = ParagraphStyle(
         'TanggalPDF',
         parent=styles['Normal'],
-        fontSize=11,
-        leading=14,
+        fontSize=10,
+        leading=13,
         textColor=colors.HexColor('#444444'),
-        alignment=1,
-        spaceAfter=10
+        alignment=0, # 0 = Rata Kiri
+        spaceAfter=2
     )
     
     sub_style = ParagraphStyle(
@@ -135,47 +136,65 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         parent=styles['Normal'],
         fontSize=9,
         textColor=colors.gray,
-        alignment=1,
-        spaceAfter=20
+        alignment=0, # 0 = Rata Kiri
+        spaceAfter=0
     )
+
+    # --- MEMBUAT KOP SURAT (LOGO KIRI, TEKS KANAN) ---
+    nama_file_logo_baru = "LogoLaporan.png"
     
-    # --- FUNGSI WATERMARK BACKGROUND TRANSPARAN ---
-    def tambah_background_logo(canvas, doc):
-        if os.path.exists(nama_file_logo):
-            try:
-                canvas.saveState()
-                # Mengatur transparansi gambar (0.15 = 15% ketebalan warna)
-                canvas.setFillAlpha(0.15) 
-                
-                # Memperlebar ukuran logo menjadi 200x200 agar terlihat jelas
-                lebar_logo = 200
-                tinggi_logo = 200
-                
-                # Menghitung posisi horizontal agar tepat di tengah halaman
-                posisi_x = (letter[0] - lebar_logo) / 2
-                
-                # Menaikkan posisi_y ke dekat batas atas halaman 
-                # ( letter[1] adalah tinggi total kertas = 792 )
-                posisi_y = letter[1] - 210 
-                
-                # Menggambar gambar transparan tepat di belakang teks KURNIA SANUSI FARM
-                canvas.drawImage(nama_file_logo, posisi_x, posisi_y, width=lebar_logo, height=tinggi_logo, mask='auto')
-                canvas.restoreState()
-            except Exception:
-                pass
-
-    # Beri jarak spasi atas agar teks nama farm sejajar simetris dengan watermark belakangnya
-    story.append(Spacer(1, 25))
-
-    # Header Laporan Baru
-    story.append(Paragraph("KURNIA SANUSI FARM", farm_style))
-    story.append(Paragraph(jenis_laporan.upper(), title_style))
-    story.append(Paragraph(f"({tgl_mulai_str} S/D {tgl_selesai_str})", date_style))
+    # Siapkan tempat penampung objek logo di sebelah kiri
+    komponen_kiri = []
+    if os.path.exists(nama_file_logo_baru):
+        try:
+            # Menggunakan ukuran logo standar kop surat (tinggi sekitar 60-65)
+            logo_kop = Image(nama_file_logo_baru, width=65, height=65)
+            logo_kop.hAlign = 'LEFT'
+            komponen_kiri.append(logo_kop)
+        except Exception:
+            # Jika file gambar rusak, dikosongkan agar tidak error
+            komponen_kiri.append(Paragraph("", styles['Normal']))
+    else:
+        # Jika file belum ada/sedang diproses, disiapkan spasi kosong selebar logo agar teks kanan tidak bergeser
+        komponen_kiri.append(Spacer(65, 65))
+    
+    # Siapkan informasi teks di sebelah kanan
+    komponen_kanan = []
+    komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
+    komponen_kanan.append(Paragraph(jenis_laporan.upper(), title_style))
+    komponen_kanan.append(Paragraph(f"Periode: {tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
     
     waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
-    story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
+    komponen_kanan.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
     
-    # Mengubah nama kolom header pada PDF menjadi huruf kapital di awal (Capital Case)
+    # Gabungkan kiri dan kanan ke dalam Tabel Kop Surat
+    # Kolom 1 (Kiri) lebar 80 unit kertas, Kolom 2 (Kanan) sisa lebar halaman (lebar total letter dikurangi margin & kolom 1)
+    lebar_kolom_kanan = letter[0] - 60 - 80 
+    tabel_kop = Table([[komponen_kiri, komponen_kanan]], colWidths=[80, lebar_kolom_kanan])
+    
+    tabel_kop.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # Teks dan logo sejajar tegak lurus di tengah
+        ('LEFTPADDING', (1,0), (1,0), 10),     # Memberikan jarak antara logo dan teks di sebelah kanannya
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+    ]))
+    
+    story.append(tabel_kop)
+    
+    # Menambahkan garis hitam tebal di bawah Kop Surat (seperti contoh gambar)
+    # Kita gunakan tabel tipis dengan latar belakang gelap sebagai garis pemisah yang solid
+    story.append(Spacer(1, 10))
+    garis_kop = Table([[""]], colWidths=[letter[0] - 60], rowHeights=[2])
+    garis_kop.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#444444')),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+    ]))
+    story.append(garis_kop)
+    story.append(Spacer(1, 15)) # Jarak antara garis kop surat ke tabel data laporan
+
+    # --- BAGIAN DATA TABEL LAPORAN ---
     headers = []
     for col in df_data.columns:
         if col == "tanggal":
@@ -206,9 +225,8 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     
     story.append(t)
     
-    # BANGUN DOKUMEN dengan memanggil fungsi callback background watermark
-    doc.build(story, onFirstPage=tambah_background_logo, onLaterPages=tambah_background_logo)
-    
+    # Karena logo sudah diatur lewat tabel di atas, build dokumen cukup seperti biasa tanpa callback background
+    doc.build(story)
     buffer.seek(0)
     return buffer
 
