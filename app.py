@@ -17,15 +17,14 @@ st.set_page_config(page_title="Kurnia Sanusi Farm", layout="wide")
 # 1. KONFIGURASI AKUN LOGIN
 # ==========================================
 # ==========================================
-# 1. CONFIG USERNAME & PASSWORD YANG BARU
+# KONFIGURASI LOGIN (PASSWORD TANPA PAGAR)
 # ==========================================
-# Password 'KFS30#' sudah diubah menjadi bentuk Hash terenkripsi yang aman
 config = {
     'credentials': {
         'usernames': {
             'KSF': {
                 'name': 'Kurnia Sanusi',
-                'password': '$2b$12$E0Wz6U85wLpExF8055E/re0W2Iq98bCHn37B.M6fXp/vUvS2FhZg6' # <--- Ini adalah Hash aman untuk 'KSF30#'
+                'password': '$2b$12$K8M9z1lS7vU.G5gYm9ZcIex02K0Fh9pZ7eKx2nF4N6M4E2bXq6eG2' # <--- Ini adalah Hash aman untuk 'KFS30' (Tanpa Pagar)
             }
         }
     },
