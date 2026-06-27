@@ -217,11 +217,30 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", info_cetak_style))
     story.append(Spacer(1, 15))
 
+    # =========================================================================
+    # GANTI BLOK HEADERS LAMA DENGAN KODE DI BAWAH INI
+    # =========================================================================
     headers = []
+    # Mapping ini otomatis merapikan semua jenis kolom dari semua menu laporan Anda
+    mapping_header = {
+        "tanggal": "Tanggal",
+        "jam": "Jam",
+        "ayam": "Ayam",
+        "bebek": "Bebek",
+        "puyuh": "Puyuh",
+        "Total": "Total",
+        "keterangan": "Keterangan",
+        "Jumlah (Rp)": "Jumlah (Rp)",
+        "Uang Ayam (Rp)": "Uang Ayam (Rp)",
+        "Uang Bebek (Rp)": "Uang Bebek (Rp)",
+        "Uang Puyuh (Rp)": "Uang Puyuh (Rp)",
+        "Total Pendapatan (Rp)": "Total Pendapatan (Rp)"
+    }
+    
     for col in df_data.columns:
-        if col == "tanggal": headers.append("Tanggal")
-        if col == "jam": headers.append("Jam")
-        else: headers.append(col)
+        # Mengambil nama rapi dari mapping, jika tidak terdaftar gunakan nama asli kolom
+        headers.append(mapping_header.get(col, col))
+    # =========================================================================
 
     data_tabel = [headers] + df_data.values.tolist()
     for i in range(len(data_tabel)):
