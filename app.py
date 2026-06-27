@@ -294,8 +294,14 @@ conn.commit()
 # FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
-    st.subheader("📊 Dashboard Analisis ")
-    st.subheader("Kurnia Sanusi Farm")
+    # MENGGANTI ST.SUBHEADER LAMA AGAR LEBIH RAPAT DAN SEJAJAR
+    st.markdown(
+        """
+        <h2 style='margin-bottom: 0px; padding-bottom: 0px; font-weight: 600; color: #31333F;'>📊 Dashboard Analisis</h2>
+        <h2 style='margin-top: 0px; padding-top: 4px; font-weight: 600; color: #31333F;'>Kurnia Sanusi Farm</h2>
+        """, 
+        unsafe_allow_html=True
+    )
     
     # Ambil semua data mentah untuk menentukan nilai batas min & max tanggal di komponen input
     df_raw = pd.read_sql("SELECT * FROM produksi", conn)
