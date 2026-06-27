@@ -66,6 +66,20 @@ HARGA_AYAM = 1500
 HARGA_BEBEK = 3000
 HARGA_PUYUH = 500
 
+# Kamus bulan untuk format teks Indonesia
+BULAN_INDO = {
+    1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
+    7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+}
+
+def format_tanggal_indo(tgl_str):
+    """Mengubah format YYYY-MM-DD menjadi DD Bulan YYYY (Contoh: 27 Juni 2026)"""
+    try:
+        dt = datetime.strptime(tgl_str, "%Y-%m-%d")
+        return f"{dt.day} {BULAN_INDO[dt.month]} {dt.year}"
+    except Exception:
+        return tgl_str
+
 def ambil_jam_wib():
     waktu_utc = datetime.utcnow()
     waktu_wib = waktu_utc + timedelta(hours=7)
@@ -140,9 +154,7 @@ conn.commit()
 try:
     conn.execute("SELECT jam FROM produksi LIMIT 1")
 except sqlite3.OperationalError:
-    conn.execute("ALTER TABLEBox produksi ADD COLUMN jam TEXT DEFAULT '-'")
-    # Jika database Anda sudah stabil dari database.py lama, ganti dengan:
-    # conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
+    conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
     conn.commit()
 
 # ==========================
@@ -192,6 +204,8 @@ if menu == "Dashboard":
             title="Grafik Tren Produksi Harian",
             color_discrete_map={"ayam": "#8B4513", "bebek": "#87CEFA", "puyuh": "#ffff00"}
         )
+        # Format label sumbu X agar menampilkan format Indonesia di grafik
+        fig.update_xaxes(tickformat="%d %b %Y")
         fig.update_layout(legend_title="Jenis Telur", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -206,13 +220,14 @@ elif menu == "Input Produksi":
         st.subheader("Input / Edit Produksi Harian")
         tanggal = st.date_input("Pilih Tanggal Produksi")
         str_tanggal = str(tanggal)
+        str_tanggal_indo = format_tanggal_indo(str_tanggal)
 
         cursor = conn.cursor()
         cursor.execute("SELECT ayam, bebek, puyuh FROM produksi WHERE tanggal = ?", (str_tanggal,))
         data_ada = cursor.fetchone()
 
         if data_ada:
-            st.warning(f"⚠️ Tanggal {str_tanggal} sudah memiliki data produksi. Mengisi form ini akan meng-overwrite data tersebut.")
+            st.warning(f"⚠️ Tanggal {str_tanggal_indo} sudah memiliki data produksi. Mengisi form ini akan meng-overwrite data tersebut.")
             default_ayam = int(data_ada[0])
             default_bebek = int(data_ada[1])
             default_puyuh = int(data_ada[2])
@@ -228,11 +243,10 @@ elif menu == "Input Produksi":
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
                 jam_wib = ambil_jam_wib()
-                conn.execute("UPDATEBox produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
-                # Jika database Anda normal, ganti dengan:
-                # conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
+                # PERBAIKAN: Mengubah UPDATEBox menjadi UPDATE biasa untuk menghilangkan error sqlite3
+                conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
                 conn.commit()
-                st.success(f"Data tanggal {str_tanggal} berhasil diperbarui pada jam {jam_wib} WIB!")
+                st.success(f"Data tanggal {str_tanggal_indo} berhasil diperbarui pada jam {jam_wib} WIB!")
                 st.rerun()
         else:
             if st.button("📥 Simpan Data Produksi Baru"):
@@ -288,13 +302,16 @@ elif menu == "Data Produksi":
         else:
             df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
             df_tabel = df.drop(columns=["id"], errors="ignore")
+            
+            # Ubah format kolom tanggal sebelum ditampilkan dan diexport
+            df_tabel["tanggal"] = df_tabel["tanggal"].apply(format_tanggal_indo)
 
             st.dataframe(df_tabel, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_data = buat_pdf_laporan(f"Laporan Rekap Produksi Telur ({tgl_mulai} s/d {tgl_selesai})", df_tabel)
+                pdf_data = buat_pdf_laporan(f"Laporan Rekap Produksi Telur ({format_tanggal_indo(str(tgl_mulai))} s/d {format_tanggal_indo(str(tgl_selesai))})", df_tabel)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_data,
@@ -311,7 +328,7 @@ elif menu == "Data Produksi":
 
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
-        pilihan_data = {row["id"]: f"{row['tanggal']} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]" for _, row in df_all.iterrows()}
+        pilihan_data = {row["id"]: f"{format_tanggal_indo(row['tanggal'])} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]" for _, row in df_all.iterrows()}
         id_terpilih = st.selectbox("Pilih baris data produksi yang ingin dihapus permanen:", options=list(pilihan_data.keys()), format_func=lambda x: pilihan_data[x])
         
         if st.button("Hapus Permanen", type="primary"):
@@ -326,7 +343,6 @@ elif menu == "Data Produksi":
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
-    # PERBAIKAN: Kata 'FROMBox' di bawah ini diubah menjadi 'FROM' agar tidak memicu DatabaseError
     df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana_all.empty:
@@ -355,12 +371,15 @@ elif menu == "Data Pendapatan":
             df_dana["Total Pendapatan (Rp)"] = (df_dana["Uang Ayam (Rp)"] + df_dana["Uang Bebek (Rp)"] + df_dana["Uang Puyuh (Rp)"])
 
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
+            
+            # Ubah format kolom tanggal ke format Indonesia
+            df_tabel_uang["tanggal"] = df_tabel_uang["tanggal"].apply(format_tanggal_indo)
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_pendapatan = buat_pdf_laporan(f"Laporan Pendapatan Keuangan ({tgl_mulai} s/d {tgl_selesai})", df_tabel_uang)
+                pdf_pendapatan = buat_pdf_laporan(f"Laporan Pendapatan Keuangan ({format_tanggal_indo(str(tgl_mulai))} s/d {format_tanggal_indo(str(tgl_selesai))})", df_tabel_uang)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_pendapatan,
@@ -382,6 +401,7 @@ elif menu == "Data Pendapatan":
                 markers=True, title="Tren Pendapatan Omzet Rupiah",
                 color_discrete_map={"Uang Ayam (Rp)": "#8B4513", "Uang Bebek (Rp)": "#87CEFA", "Uang Puyuh (Rp)": "#D3D3D3", "Total Pendapatan (Rp)": "#00FF00"}
             )
+            fig_dana.update_xaxes(tickformat="%d %b %Y")
             fig_dana.update_layout(template="plotly_white")
             st.plotly_chart(fig_dana, use_container_width=True)
 
@@ -412,12 +432,15 @@ elif menu == "Data Pengeluaran":
             st.info("Tidak ada data pengeluaran pada rentang tanggal tersebut.")
         else:
             df_tabel_keluar = df_keluar_filtered.drop(columns=["id"], errors="ignore")
+            
+            # Ubah format kolom tanggal ke format Indonesia
+            df_tabel_keluar["tanggal"] = df_tabel_keluar["tanggal"].apply(format_tanggal_indo)
             st.dataframe(df_tabel_keluar, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_pengeluaran = buat_pdf_laporan(f"Laporan Pengeluaran Operasional ({tgl_mulai} s/d {tgl_selesai})", df_tabel_keluar)
+                pdf_pengeluaran = buat_pdf_laporan(f"Laporan Pengeluaran Operasional ({format_tanggal_indo(str(tgl_mulai))} s/d {format_tanggal_indo(str(tgl_selesai))})", df_tabel_keluar)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_pengeluaran,
@@ -434,7 +457,7 @@ elif menu == "Data Pengeluaran":
 
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
-        pilihan_keluar = {row["id"]: f"{row['tanggal']} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]" for _, row in df_keluar_all.iterrows()}
+        pilihan_keluar = {row["id"]: f"{format_tanggal_indo(row['tanggal'])} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]" for _, row in df_keluar_all.iterrows()}
         id_keluar_terpilih = st.selectbox("Pilih nota pengeluaran yang ingin dihapus:", options=list(pilihan_keluar.keys()), format_func=lambda x: pilihan_keluar[x])
 
         if st.button("Hapus Nota", type="primary"):
