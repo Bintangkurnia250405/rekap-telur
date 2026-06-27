@@ -325,10 +325,14 @@ if menu == "Dashboard":
 # ==========================
 # FITUR MENU 2: INPUT PRODUKSI
 # ==========================
+# ==========================
+# FITUR MENU 2: INPUT PRODUKSI (UPDATED WITH EXPENDITURE OVERWRITE)
+# ==========================
 elif menu == "Input Produksi":
     st.subheader("Formulir Pencatatan Harian")
     tab1, tab2 = st.tabs(["🥚 Input Produksi Telur", "💸 Input Pengeluaran Biaya"])
 
+    # --- TAB 1: INPUT PRODUKSI TELUR ---
     with tab1:
         st.subheader("Input / Edit Produksi Harian")
         tanggal = st.date_input("Pilih Tanggal Produksi")
@@ -368,23 +372,53 @@ elif menu == "Input Produksi":
                 st.success(f"Data baru berhasil disimpan pada jam {jam_wib} WIB.")
                 st.rerun()
 
+    # --- TAB 2: INPUT PENGELUARAN BIAYA (DENGAN FITUR EDIT/OVERWRITE) ---
     with tab2:
-        st.subheader("Input Pengeluaran Operasional / Pakan")
+        st.subheader("Input / Edit Pengeluaran Operasional / Pakan")
         tgl_pengeluaran = st.date_input("Tanggal Pengeluaran")
-        keterangan = st.text_input("Keterangan Pengeluaran (Contoh: Beli pakan ayam, obat bebek)")
-        jumlah_biaya = st.number_input("Jumlah Biaya (Rp)", min_value=0.0, step=500.0)
+        str_tgl_keluar = str(tgl_pengeluaran)
+        str_tgl_keluar_indo = format_tanggal_indo(str_tgl_keluar)
+
+        # Cek apakah tanggal pengeluaran ini sudah pernah diinput sebelumnya
+        cursor_keluar = conn.cursor()
+        cursor_keluar.execute("SELECT keterangan, jumlah FROM pengeluaran WHERE tanggal = ?", (str_tgl_keluar,))
+        data_keluar_ada = cursor_keluar.fetchone()
+
+        if data_keluar_ada:
+            st.warning(f"⚠️ Tanggal {str_tgl_keluar_indo} sudah memiliki catatan pengeluaran. Mengisi form ini akan meng-overwrite data tersebut.")
+            default_keterangan = str(data_keluar_ada[0])
+            default_biaya = float(data_keluar_ada[1])
+        else:
+            default_keterangan = ""
+            default_biaya = 0.0
+
+        keterangan = st.text_input("Keterangan Pengeluaran (Contoh: Beli pakan ayam, obat bebek)", value=default_keterangan)
+        jumlah_biaya = st.number_input("Jumlah Biaya (Rp)", min_value=0.0, step=500.0, value=default_biaya)
         
-        if st.button("📥 Simpan Nota Pengeluaran", type="secondary"):
-            if keterangan == "":
-                st.error("Keterangan tidak boleh kosong!")
-            elif jumlah_biaya <= 0:
-                st.error("Jumlah biaya harus lebih besar dari 0!")
-            else:
-                jam_wib_biaya = ambil_jam_wib()
-                conn.execute("INSERT INTO pengeluaran (tanggal, jam, keterangan, jumlah) VALUES (?, ?, ?, ?)", (str(tgl_pengeluaran), jam_wib_biaya, keterangan, jumlah_biaya))
-                conn.commit()
-                st.success(f"Pengeluaran berhasil dicatat pada jam {jam_wib_biaya} WIB!")
-                st.rerun()
+        if data_keluar_ada:
+            if st.button("🔄 Perbarui Nota Pengeluaran (Overwrite)", type="primary", key="btn_overwrite_keluar"):
+                if keterangan == "":
+                    st.error("Keterangan tidak boleh kosong!")
+                elif jumlah_biaya <= 0:
+                    st.error("Jumlah biaya harus lebih besar dari 0!")
+                else:
+                    jam_wib_biaya = ambil_jam_wib()
+                    conn.execute("UPDATE pengeluaran SET keterangan = ?, jumlah = ?, jam = ? WHERE tanggal = ?", (keterangan, jumlah_biaya, jam_wib_biaya, str_tgl_keluar))
+                    conn.commit()
+                    st.success(f"Nota pengeluaran tanggal {str_tgl_keluar_indo} berhasil diperbarui pada jam {jam_wib_biaya} WIB!")
+                    st.rerun()
+        else:
+            if st.button("📥 Simpan Nota Pengeluaran Baru", type="secondary", key="btn_simpan_keluar"):
+                if keterangan == "":
+                    st.error("Keterangan tidak boleh kosong!")
+                elif jumlah_biaya <= 0:
+                    st.error("Jumlah biaya harus lebih besar dari 0!")
+                else:
+                    jam_wib_biaya = ambil_jam_wib()
+                    conn.execute("INSERT INTO pengeluaran (tanggal, jam, keterangan, jumlah) VALUES (?, ?, ?, ?)", (str_tgl_keluar, jam_wib_biaya, keterangan, jumlah_biaya))
+                    conn.commit()
+                    st.success(f"Pengeluaran baru berhasil dicatat pada jam {jam_wib_biaya} WIB!")
+                    st.rerun()
 
 # ==========================
 # FITUR MENU 3: DATA PRODUKSI
