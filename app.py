@@ -1,7 +1,4 @@
 import streamlit as st
-import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
 import os
 import io
 import sqlite3
@@ -26,61 +23,55 @@ st.set_page_config(
 conn = sqlite3.connect("rekap_telur.db", check_same_thread=False)
 
 # ==========================================
-# 1. KONFIGURASI AKUN LOGIN (VERSI FINAL 0.3.2)
-# ==========================================
-config = {
-    'credentials': {
-        'usernames': {
-            'ksf': {  # PENTING: Versi 0.3.2 wajib menggunakan huruf kecil untuk key username di database internalnya!
-                'name': 'Kurnia Sanusi',
-                # Hash bcrypt valid & aman dari teks password 'KSF30'
-                'password': '$2b$12$clZgZ4gQOdfS07K.GgU6vOa.C4M/vNInYw7C.BKy2.BqQpA6bA8f6'
-            }
-        }
-    },
-    'cookie': {
-        'expiry_days': 30,
-        'key': 'kurnia_farm_secret_cookie_fixed_v4', # Mengubah key cookie untuk membersihkan sesi rusak sebelumnya
-        'name': 'kurnia_farm_auth_fixed_v4'
-    }
-}
-
-# Inisialisasi modul Authenticate
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
-)
-
-# ==========================================
-# 2. HALAMAN LOGIN (BERDIRI SENDIRI - STRUKTUR 0.3.2)
+# 1 & 2. HALAMAN LOGIN NATIVE (STABIL & AMAN)
 # ==========================================
 
-# Pada versi 0.3.2, fungsi .login() tidak mengembalikan nilai jika diletakkan di 'main'. 
-# Kita panggil fungsinya secara mandiri tanpa variabel penangkap di depannya.
-authenticator.login(location='main')
+# Inisialisasi status login di session state jika belum ada
+if "sudah_login" not in st.session_state:
+    st.session_state["sudah_login"] = False
+if "nama_user" not in st.session_state:
+    st.session_state["nama_user"] = ""
 
-# Ambil status login secara real-time langsung dari session_state internal streamlit-authenticator
-authentication_status = st.session_state.get("authentication_status")
-name = st.session_state.get("name")
-username = st.session_state.get("username")
+# JIKA BELUM LOGIN, TAMPILKAN FORM LOGIN UTAMA
+if not st.session_state["sudah_login"]:
+    # Membuat box form login di tengah halaman
+    _, col_center, _ = st.columns([1, 2, 1])
+    
+    with col_center:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>🥚 Kurnia Sanusi Farm</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: gray;'>Silakan masuk untuk mengakses sistem rekap</p>", unsafe_allow_html=True)
+        
+        with st.form("form_login_kandang"):
+            input_user = st.text_input("Username", placeholder="Masukkan username Anda")
+            input_pass = st.text_input("Password", type="password", placeholder="Masukkan password Anda")
+            tombol_masuk = st.form_submit_button("Masuk ke Sistem", use_container_width=True)
+            
+            if tombol_masuk:
+                # VALIDASI DATA AKSES SECARA LANGSUNG
+                if input_user == "KSF" and input_pass == "KSF30":
+                    st.session_state["sudah_login"] = True
+                    st.session_state["nama_user"] = "Kurnia Sanusi"
+                    st.success("Login Berhasil! Memuat Dashboard...")
+                    st.rerun()
+                else:
+                    st.error("❌ Username atau Password salah! Periksa kembali input Anda.")
+        
+        st.info("💡 Petunjuk Akses:\n- Gunakan Huruf Kapital Semua.\n- Hubungi admin jika lupa data akses akun.")
+    st.stop() # Kunci halaman sisa di bawah agar tidak tereksekusi sebelum login berhasil
 
-# Logika kontrol halaman berdasarkan isi session state
-if authentication_status == False:
-    st.error('Username atau Password salah!')
-    st.stop() 
+# Menyimpan variabel name agar kompatibel dengan sisa kode dashboard Anda
+name = st.session_state["nama_user"]
 
-elif authentication_status is None:
-    st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
-    st.stop()
 # ==========================================
 # 3. HALAMAN UTAMA / DASHBOARD (SETELAH BERHASIL LOGIN)
 # ==========================================
-# BAGIAN DI BAWAH INI HANYA AKAN JALAN JIKA LOGIN SUKSES!
 
-# Tombol logout diletakkan rapi di sidebar atas
-authenticator.logout('Logout dari Sistem', 'sidebar')
+# Tombol logout rapi diletakkan di sidebar atas menggantikan fungsi pustaka lama
+if st.sidebar.button("🚪 Logout dari Sistem", use_container_width=True):
+    st.session_state["sudah_login"] = False
+    st.session_state["nama_user"] = ""
+    st.rerun()
 
 # CUSTOMLY BACKGROUND & GAYA TAMPILAN (CSS)
 st.markdown(
@@ -229,7 +220,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     headers = []
     for col in df_data.columns:
         if col == "tanggal": headers.append("Tanggal")
-        elif col == "jam": headers.append("Jam")
+        if col == "jam": headers.append("Jam")
         else: headers.append(col)
 
     data_tabel = [headers] + df_data.values.tolist()
