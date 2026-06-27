@@ -4,27 +4,36 @@ import yaml
 from yaml.loader import SafeLoader
 import os
 import io
+import sqlite3
+import pandas as pd
+import plotly.express as px
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-# Set konfigurasi halaman Streamlit di baris paling atas
-st.set_page_config(page_title="Kurnia Sanusi Farm", layout="wide")
+# ==========================================
+# 0. KONFIGURASI HALAMAN UTAMA (HANYA BOLEH 1 KALI)
+# ==========================================
+st.set_page_config(
+    page_title="Kurnia Sanusi Farm", 
+    page_icon="🥚",
+    layout="wide"
+)
+
+# KONEKSI DATABASE SQLITE
+conn = sqlite3.connect("rekap_telur.db", check_same_thread=False)
 
 # ==========================================
 # 1. KONFIGURASI AKUN LOGIN
-# ==========================================
-# ==========================================
-# KONFIGURASI LOGIN (PASSWORD TANPA PAGAR)
 # ==========================================
 config = {
     'credentials': {
         'usernames': {
             'KSF': {
                 'name': 'Kurnia Sanusi',
-                'password': '$2b$12$K8M9z1lS7vU.G5gYm9ZcIex02K0Fh9pZ7eKx2nF4N6M4E2bXq6eG2' # <--- Ini adalah Hash aman untuk 'KFS30' (Tanpa Pagar)
+                'password': '$2b$12$K8M9z1lS7vU.G5gYm9ZcIex02K0Fh9pZ7eKx2nF4N6M4E2bXq6eG2' # Hash dari 'KFS30'
             }
         }
     },
@@ -49,37 +58,21 @@ name, authentication_status, username = authenticator.login(location='main')
 
 if authentication_status == False:
     st.error('Username atau Password salah!')
-    st.stop()  # <--- Mengunci halaman di sini agar dashboard tidak bocor ke bawah
+    st.stop()  # Mengunci halaman jika password salah
 
 elif authentication_status == None:
     st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
-    st.stop()  # <--- Mengunci halaman di sini agar menu navigasi & dashboard tidak termuat sebelum login
+    st.stop()  # Mengunci halaman jika belum mengisi form login
 
 # ==========================================
 # 3. HALAMAN UTAMA / DASHBOARD (SETELAH BERHASIL LOGIN)
 # ==========================================
-# Kode di bawah ini BARU AKAN JALAN DAN TERLIHAT jika status login = True
+# BAGIAN DI BAWAH INI HANYA AKAN JALAN JIKA LOGIN SUKSES!
+
+# Tombol logout diletakkan rapi di sidebar atas
 authenticator.logout('Logout dari Sistem', 'sidebar')
-st.sidebar.success(f"Selamat Datang, {name}!")
 
-# --------------------------------------------------
-# TARUH KODE MENU NAVIGASI & INPUT DATA ANDA DI SINI
-# --------------------------------------------------
-# Contoh kelanjutan struktur menu Anda:
-# menu = st.sidebar.radio("Menu Navigasi", ["Dashboard", "Input Produksi", "Data Produksi", "Data Pendapatan", "Data Pengeluaran"])
-
-st.title("Rekap Produksi & Keuangan")
-# ... Sisa kode visualisasi data, form input, dan fungsi cetak PDF Anda ...
-
-st.set_page_config(
-    page_title="Rekap Produksi Telur",
-    page_icon="🥚",
-    layout="wide"
-)
-
-# ==========================================
 # CUSTOMLY BACKGROUND & GAYA TAMPILAN (CSS)
-# ==========================================
 st.markdown(
     """
     <style>
@@ -97,9 +90,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ==========================================
 # MENAMPILKAN LOGO DI SIDEBAR
-# ==========================================
 nama_file_logo = "logo.png" 
 
 if os.path.exists(nama_file_logo):
@@ -108,7 +99,9 @@ else:
     st.sidebar.markdown("<h2 style='text-align: center;'>🥚 KANDANG JAYA</h2>", unsafe_allow_html=True)
 
 st.sidebar.divider()
+st.sidebar.success(f"Selamat Datang, {name}!")
 
+# MENU NAVIGASI UTAMA
 menu = st.sidebar.radio(
     "Menu Navigasi",
     [
@@ -120,18 +113,18 @@ menu = st.sidebar.radio(
     ]
 )
 
+# KONSTANTA DATA
 HARGA_AYAM = 1500
 HARGA_BEBEK = 3000
 HARGA_PUYUH = 500
 
-# Kamus bulan untuk format teks Indonesia
 BULAN_INDO = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
     7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
 }
 
+# FUNGSI PENDUKUNG
 def format_tanggal_indo(tgl_str):
-    """Mengubah format YYYY-MM-DD menjadi DD Bulan YYYY (Contoh: 27 Juni 2026)"""
     try:
         dt = datetime.strptime(tgl_str, "%Y-%m-%d")
         return f"{dt.day} {BULAN_INDO[dt.month]} {dt.year}"
@@ -139,7 +132,6 @@ def format_tanggal_indo(tgl_str):
         return tgl_str
 
 def format_rupiah_kustom(val):
-    """Mengubah angka nominal menjadi format string dengan titik (Contoh: 45000 -> 45.000)"""
     try:
         return f"{int(val):,}".replace(",", ".")
     except Exception:
@@ -150,75 +142,36 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan dengan Kop Resmi Bergaris & Judul Rata Tengah Spasi 1
+# FUNGSI PEMBUAT PDF LAPORAN
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=10, bottomMargin=30)
     story = []
-    
     styles = getSampleStyleSheet()
     
-    # Gaya Nama Farm di dalam Kop
     farm_style = ParagraphStyle(
-        'FarmPDF',
-        parent=styles['Heading1'],
-        fontSize=18,
-        leading=22,
-        textColor=colors.HexColor('#8B4513'),
-        alignment=0,
-        spaceAfter=1
+        'FarmPDF', parent=styles['Heading1'], fontSize=18, leading=22,
+        textColor=colors.HexColor('#8B4513'), alignment=0, spaceAfter=1
     )
-    
-    # Gaya Alamat di dalam Kop
     sub_style = ParagraphStyle(
-        'SubJudulPDF',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=13,
-        textColor=colors.gray,
-        alignment=0,
-        spaceAfter=0
+        'SubJudulPDF', parent=styles['Normal'], fontSize=10, leading=13,
+        textColor=colors.gray, alignment=0, spaceAfter=0
     )
-    
-    # PERBAIKAN: Gaya Judul Laporan di Bawah Garis (Ubah ke alignment=1 / CENTER & leading rapat)
     title_style = ParagraphStyle(
-        'JudulPDF',
-        parent=styles['Heading2'],
-        fontSize=13,
-        leading=15, # Setara Spasi 1 (proporsional dengan fontSize 13)
-        textColor=colors.HexColor('#A0522D'),
-        alignment=1, # 1 = Rata Tengah (Center)
-        spaceAfter=3
+        'JudulPDF', parent=styles['Heading2'], fontSize=13, leading=15,
+        textColor=colors.HexColor('#A0522D'), alignment=1, spaceAfter=3
     )
-    
-    # PERBAIKAN: Gaya Periode Tanggal (Ubah ke alignment=1 / CENTER & leading rapat)
     date_style = ParagraphStyle(
-        'TanggalPDF',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=12, # Setara Spasi 1
-        textColor=colors.HexColor('#444444'),
-        alignment=1, # 1 = Rata Tengah (Center)
-        spaceAfter=3
+        'TanggalPDF', parent=styles['Normal'], fontSize=10, leading=12,
+        textColor=colors.HexColor('#444444'), alignment=1, spaceAfter=3
     )
-    
-    # PERBAIKAN: Gaya Informasi Cetak (Ubah ke alignment=1 / CENTER & leading rapat)
     info_cetak_style = ParagraphStyle(
-        'InfoCetakPDF',
-        parent=styles['Normal'],
-        fontSize=8.5,
-        leading=10.5, # Setara Spasi 1
-        textColor=colors.gray,
-        alignment=1, # 1 = Rata Tengah (Center)
-        spaceAfter=0
+        'InfoCetakPDF', parent=styles['Normal'], fontSize=8.5, leading=10.5,
+        textColor=colors.gray, alignment=1, spaceAfter=0
     )
 
-    # --- MEMBUAT KOP UTAMA (DI ATAS GARIS) ---
     nama_file_logo_baru = "LogoLaporan.png"
     komponen_kiri = []
-
-    # Menggunakan lebar kolom logo tetap 75 untuk pembagian proporsi tabel
-    lebar_slot_logo = 75
     
     if os.path.exists(nama_file_logo_baru):
         try:
@@ -226,12 +179,11 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             logo_kop.hAlign = 'LEFT'
             komponen_kiri.append(logo_kop)
         except Exception as e:
-            # Mengubah baris ini agar kita tahu error pastinya di terminal/cmd
             print(f"Gagal memuat logo karena: {e}")
             komponen_kiri.append(Paragraph("", styles['Normal']))
     else:
         komponen_kiri.append(Spacer(65, 65))
-    
+        
     komponen_kanan = []
     komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
     komponen_kanan.append(Paragraph("JL. CILENGKRANG 2 KP. MEKARSARI RT.02 RW.01 KEL. PALASARI KEC. CIBIRU KOTA BANDUNG 40615 NO.70 NO TELP : 081220861824", sub_style))
@@ -247,7 +199,6 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     ]))
     story.append(tabel_kop)
     
-    # GARIS PEMBATAS SOLID
     story.append(Spacer(1, 4 ))
     garis_kop = Table([[""]], colWidths=[letter[0] - 60], rowHeights=[2])
     garis_kop.setStyle(TableStyle([
@@ -257,7 +208,6 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     ]))
     story.append(garis_kop)
     
-    # --- DETAIL INFORMASI (DI BAWAH GARIS - SEKARANG CENTER & SPASI 1) ---
     story.append(Spacer(1, 12))
     story.append(Paragraph(jenis_laporan.upper(), title_style))
     story.append(Paragraph(f"Periode: {tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
@@ -266,15 +216,11 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", info_cetak_style))
     story.append(Spacer(1, 15))
 
-    # --- DATA TABEL LAPORAN ---
     headers = []
     for col in df_data.columns:
-        if col == "tanggal":
-            headers.append("Tanggal")
-        elif col == "jam":
-            headers.append("Jam")
-        else:
-            headers.append(col)
+        if col == "tanggal": headers.append("Tanggal")
+        elif col == "jam": headers.append("Jam")
+        else: headers.append(col)
 
     data_tabel = [headers] + df_data.values.tolist()
     for i in range(len(data_tabel)):
@@ -283,7 +229,6 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             
     t = Table(data_tabel, hAlign='CENTER')
     t.setStyle(TableStyle([
-        # Header Atas (Krem & Cokelat Tua)
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FFF8EE')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#8B4513')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -293,8 +238,6 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        
-        # TAMBAHAN: Mewarnai Baris TOTAL (Menggunakan indeks -1 untuk baris paling akhir)
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FFF8EE')),
         ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#8B4513')),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
@@ -305,6 +248,17 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer.seek(0)
     return buffer
 
+# INITIALIZE DATABASE TABLES
+conn.execute("""
+CREATE TABLE IF NOT EXISTS produksi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tanggal TEXT,
+    jam TEXT,
+    ayam INTEGER,
+    bebek INTEGER,
+    puyuh INTEGER
+)
+""")
 conn.execute("""
 CREATE TABLE IF NOT EXISTS pengeluaran (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -316,14 +270,8 @@ CREATE TABLE IF NOT EXISTS pengeluaran (
 """)
 conn.commit()
 
-try:
-    conn.execute("SELECT jam FROM produksi LIMIT 1")
-except sqlite3.OperationalError:
-    conn.execute("ALTER TABLE produksi ADD COLUMN jam TEXT DEFAULT '-'")
-    conn.commit()
-
 # ==========================
-# 1. DASHBOARD
+# FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
     st.title("🥚 Rekap Produksi & Keuangan")
@@ -374,7 +322,7 @@ if menu == "Dashboard":
         st.plotly_chart(fig, use_container_width=True)
 
 # ==========================
-# 2. INPUT PRODUKSI & PENGELUARAN
+# FITUR MENU 2: INPUT PRODUKSI
 # ==========================
 elif menu == "Input Produksi":
     st.subheader("Formulir Pencatatan Harian")
@@ -438,11 +386,10 @@ elif menu == "Input Produksi":
                 st.rerun()
 
 # ==========================
-# 3. DATA PRODUKSI
+# FITUR MENU 3: DATA PRODUKSI
 # ==========================
 elif menu == "Data Produksi":
     st.subheader("📦 Data Rekap Produksi Telur Harian")
-
     df_all = pd.read_sql("SELECT id, tanggal, jam, ayam, bebek, puyuh FROM produksi ORDER BY tanggal DESC", conn)
 
     if df_all.empty:
@@ -466,16 +413,13 @@ elif menu == "Data Produksi":
             df_filtered["Total"] = df_filtered["ayam"] + df_filtered["bebek"] + df_filtered["puyuh"]
             df_tabel = df_filtered.drop(columns=["id"], errors="ignore").sort_values(by="tanggal", ascending=False)
             
-            # 1. Hitung total per kolom numerik sebelum format diubah
             total_ayam_s = df_tabel["ayam"].sum()
             total_bebek_s = df_tabel["bebek"].sum()
             total_puyuh_s = df_tabel["puyuh"].sum()
             total_semua_s = df_tabel["Total"].sum()
             
-            # 2. Ubah format kolom tanggal ke Indonesia
             df_tabel["tanggal"] = df_tabel["tanggal"].apply(format_tanggal_indo)
             
-            # 3. Buat baris Total baru dan gabungkan ke tabel paling bawah
             row_total = pd.DataFrame([{
                 "tanggal": "TOTAL", "jam": "-", 
                 "ayam": total_ayam_s, "bebek": total_bebek_s, 
@@ -483,11 +427,9 @@ elif menu == "Data Produksi":
             }])
             df_tabel = pd.concat([df_tabel, row_total], ignore_index=True)
 
-            # Mengubah nama kolom agar berhuruf kapital di awal ("Tanggal" & "Jam") saat ditampilkan di Streamlit
             df_tampil_produksi = df_tabel.rename(columns={"tanggal": "Tanggal", "jam": "Jam", "ayam": "Ayam", "bebek": "Bebek", "puyuh": "Puyuh"})
             st.dataframe(df_tampil_produksi, use_container_width=True, hide_index=True)
 
-            # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
                 pdf_data = buat_pdf_laporan("Laporan Rekap Produksi Telur", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel)
@@ -517,11 +459,10 @@ elif menu == "Data Produksi":
             st.rerun()
 
 # ==========================
-# 4. DATA PENDAPATAN
+# FITUR MENU 4: DATA PENDAPATAN
 # ==========================
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
-
     df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana_all.empty:
@@ -551,16 +492,13 @@ elif menu == "Data Pendapatan":
 
             df_tabel_uang = df_dana.drop(columns=["ayam", "bebek", "puyuh"]).sort_values(by="tanggal", ascending=False)
             
-            # 1. Hitung total uang per jenis telur
             t_u_ayam = df_tabel_uang["Uang Ayam (Rp)"].sum()
             t_u_bebek = df_tabel_uang["Uang Bebek (Rp)"].sum()
             t_u_puyuh = df_tabel_uang["Uang Puyuh (Rp)"].sum()
             t_u_grand = df_tabel_uang["Total Pendapatan (Rp)"].sum()
             
-            # 2. Ubah format kolom tanggal ke format Indonesia
             df_tabel_uang["tanggal"] = df_tabel_uang["tanggal"].apply(format_tanggal_indo)
             
-            # 3. Buat baris Total baru dan tempel di paling bawah
             row_total_uang = pd.DataFrame([{
                 "tanggal": "TOTAL", "jam": "-",
                 "Uang Ayam (Rp)": t_u_ayam, "Uang Bebek (Rp)": t_u_bebek,
@@ -568,17 +506,14 @@ elif menu == "Data Pendapatan":
             }])
             df_tabel_uang = pd.concat([df_tabel_uang, row_total_uang], ignore_index=True)
 
-            # PERBAIKAN FORMAT UANG: Mengubah tampilan angka menggunakan format titik (.)
             df_tabel_uang["Uang Ayam (Rp)"] = df_tabel_uang["Uang Ayam (Rp)"].apply(format_rupiah_kustom)
             df_tabel_uang["Uang Bebek (Rp)"] = df_tabel_uang["Uang Bebek (Rp)"].apply(format_rupiah_kustom)
             df_tabel_uang["Uang Puyuh (Rp)"] = df_tabel_uang["Uang Puyuh (Rp)"].apply(format_rupiah_kustom)
             df_tabel_uang["Total Pendapatan (Rp)"] = df_tabel_uang["Total Pendapatan (Rp)"].apply(format_rupiah_kustom)
 
-            # Mengubah nama kolom agar berhuruf kapital di awal ("Tanggal" & "Jam") saat ditampilkan di Streamlit
             df_tampil_pendapatan = df_tabel_uang.rename(columns={"tanggal": "Tanggal", "jam": "Jam"})
             st.dataframe(df_tampil_pendapatan, use_container_width=True, hide_index=True)
 
-            # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
                 pdf_pendapatan = buat_pdf_laporan("Laporan Pendapatan Keuangan", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel_uang)
@@ -608,11 +543,10 @@ elif menu == "Data Pendapatan":
             st.plotly_chart(fig_dana, use_container_width=True)
 
 # ==========================
-# 5. DATA PENGELUARAN
+# FITUR MENU 5: DATA PENGELUARAN
 # ==========================
 elif menu == "Data Pengeluaran":
     st.subheader("💸 Laporan Pengeluaran Operasional / Pembelian Pakan")
-
     df_keluar_all = pd.read_sql("SELECT id, tanggal, jam, keterangan, jumlah AS 'Jumlah (Rp)' FROM pengeluaran ORDER BY tanggal DESC", conn)
 
     if df_keluar_all.empty:
@@ -635,26 +569,20 @@ elif menu == "Data Pengeluaran":
         else:
             df_tabel_keluar = df_keluar_filtered.drop(columns=["id"], errors="ignore")
             
-            # 1. Hitung total pengeluaran rupiah sebelum format diubah
             total_pengeluaran_s = df_tabel_keluar["Jumlah (Rp)"].sum()
             
-            # 2. Ubah format kolom tanggal ke format Indonesia
             df_tabel_keluar["tanggal"] = df_tabel_keluar["tanggal"].apply(format_tanggal_indo)
             
-            # 3. Buat baris Total baru dan tempel di paling bawah
             row_total_keluar = pd.DataFrame([{
                 "tanggal": "TOTAL", "jam": "-", "keterangan": "Total Biaya Operasional", "Jumlah (Rp)": total_pengeluaran_s
             }])
             df_tabel_keluar = pd.concat([df_tabel_keluar, row_total_keluar], ignore_index=True)
 
-            # PERBAIKAN FORMAT UANG: Mengubah tampilan nominal jumlah pengeluaran menggunakan titik (.)
             df_tabel_keluar["Jumlah (Rp)"] = df_tabel_keluar["Jumlah (Rp)"].apply(format_rupiah_kustom)
 
-            # Mengubah nama kolom agar berhuruf kapital di awal ("Tanggal" & "Jam") saat ditampilkan di Streamlit
             df_tampil_pengeluaran = df_tabel_keluar.rename(columns={"tanggal": "Tanggal", "jam": "Jam", "keterangan": "Keterangan"})
             st.dataframe(df_tampil_pengeluaran, use_container_width=True, hide_index=True)
 
-            # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
                 pdf_pengeluaran = buat_pdf_laporan("Laporan Pengeluaran Operasional", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel_keluar)
