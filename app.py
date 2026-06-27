@@ -169,7 +169,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             print(f"Gagal memuat logo karena: {e}")
             komponen_kiri.append(Paragraph("", styles['Normal']))
     else:
-        komponen_kiri.append(Spacer(60, 60))
+        komponen_kiri.append(Spacer(100, 100))
     
     komponen_kanan = []
     komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
