@@ -33,7 +33,7 @@ config = {
         'usernames': {
             'KSF': {
                 'name': 'Kurnia Sanusi',
-                'password': '$2b$12$K8M9z1lS7vU.G5gYm9ZcIex02K0Fh9pZ7eKx2nF4N6M4E2bXq6eG2' # Hash dari 'KFS30'
+                'password': '$2b$12$K8M9z1lS7vU.G5gYm9ZcIex02K0Fh9pZ7eKx2nF4N6M4E2bXq6eG2' # Hash dari 'KSF30'
             }
         }
     },
@@ -44,6 +44,7 @@ config = {
     }
 }
 
+# Inisialisasi Authenticate
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
@@ -52,24 +53,20 @@ authenticator = stauth.Authenticate(
 )
 
 # ==========================================
-# 2. HALAMAN LOGIN (BERDIRI SENDIRI - VERSI BARU)
+# 2. HALAMAN LOGIN (BERDIRI SENDIRI - VERSI FIX)
 # ==========================================
-# Di versi streamlit-authenticator terbaru, .login hanya menerima parameter single string untuk lokasi
-authenticator.login() 
+# Pada versi 0.3.2, login mengembalikan status langsung dari fungsi call-nya.
+# Kita bungkus dalam form utama dengan judul 'Login'
+name, authentication_status, username = authenticator.login(location='main')
 
-# Ambil status login langsung dari session state streamlit
-authentication_status = st.session_state.get("authentication_status")
-name = st.session_state.get("name")
-username = st.session_state.get("username")
-
+# Logika pengecekan status login yang benar untuk mencegah st.stop() prematur
 if authentication_status == False:
     st.error('Username atau Password salah!')
-    st.stop()  # Mengunci halaman jika password salah
+    st.stop()  # Mengunci halaman jika password salah setelah tombol ditekan
 
 elif authentication_status == None or authentication_status == "":
     st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
     st.stop()  # Mengunci halaman jika belum mengisi form login
-
 # ==========================================
 # 3. HALAMAN UTAMA / DASHBOARD (SETELAH BERHASIL LOGIN)
 # ==========================================
