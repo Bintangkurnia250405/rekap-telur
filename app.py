@@ -95,7 +95,7 @@ def ambil_jam_wib():
 # Fungsi Pembuat PDF Laporan dengan Kop Resmi Bergaris & Judul Rata Tengah Spasi 1
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=15, bottomMargin=30)
     story = []
     
     styles = getSampleStyleSheet()
@@ -158,6 +158,9 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     # --- MEMBUAT KOP UTAMA (DI ATAS GARIS) ---
     nama_file_logo_baru = "LogoLaporan.png"
     komponen_kiri = []
+
+    # Menggunakan lebar kolom logo tetap 75 untuk pembagian proporsi tabel
+    lebar_slot_logo = 75
     
     if os.path.exists(nama_file_logo_baru):
         try:
@@ -169,7 +172,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             print(f"Gagal memuat logo karena: {e}")
             komponen_kiri.append(Paragraph("", styles['Normal']))
     else:
-        komponen_kiri.append(Spacer(30, 30))
+        komponen_kiri.append(Spacer(65, 65))
     
     komponen_kanan = []
     komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
@@ -180,7 +183,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     tabel_kop = Table([[komponen_kiri, komponen_kanan]], colWidths=[75, lebar_kolom_kanan])
     tabel_kop.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING', (1,0), (1,0), 5),
+        ('LEFTPADDING', (1,0), (1,0), 25),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ('TOPPADDING', (0,0), (-1,-1), 0),
