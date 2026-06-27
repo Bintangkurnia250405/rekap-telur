@@ -159,9 +159,9 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     nama_file_logo_baru = "LogoLaporan.png"
     komponen_kiri = []
     
-    if os.path.exists(nama_file_logo_baru):
+    if os.path.exists(LogoLaporan):
         try:
-            logo_kop = Image(LogoLaporan.png, width=60, height=60)
+            logo_kop = Image(LogoLaporan, width=60, height=60)
             logo_kop.hAlign = 'LEFT'
             komponen_kiri.append(logo_kop)
         except Exception:
