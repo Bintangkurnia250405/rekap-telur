@@ -294,7 +294,8 @@ conn.commit()
 # FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
-    st.subheader("📊 Dashboard Analisis \n Kurnia Sanusi Farm")
+    st.subheader("📊 Dashboard Analisis ")
+    st.subheader("Kurnia Sanusi Farm")
     
     # Ambil semua data mentah untuk menentukan nilai batas min & max tanggal di komponen input
     df_raw = pd.read_sql("SELECT * FROM produksi", conn)
