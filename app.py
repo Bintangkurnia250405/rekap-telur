@@ -144,17 +144,21 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         if os.path.exists(nama_file_logo):
             try:
                 canvas.saveState()
-                # Mengatur transparansi gambar (0.15 berarti transparansi 15% agar teks tetap terbaca tajam)
+                # Mengatur transparansi gambar (0.15 = 15% ketebalan warna)
                 canvas.setFillAlpha(0.15) 
                 
-                # Menghitung posisi tengah halaman letter (Lebar: 612, Tinggi: 792)
-                # Teks KURNIA SANUSI FARM ada di bagian atas, mari tempatkan logo di area atas belakang teks
-                lebar_logo = 120
-                tinggi_logo = 120
-                posisi_x = (letter[0] - lebar_logo) / 2
-                posisi_y = letter[1] - 150 # Menyesuaikan posisi tepat di belakang teks nama farm
+                # Memperlebar ukuran logo menjadi 200x200 agar terlihat jelas
+                lebar_logo = 200
+                tinggi_logo = 200
                 
-                # Menggambar gambar transparan ke canvas background
+                # Menghitung posisi horizontal agar tepat di tengah halaman
+                posisi_x = (letter[0] - lebar_logo) / 2
+                
+                # Menaikkan posisi_y ke dekat batas atas halaman 
+                # ( letter[1] adalah tinggi total kertas = 792 )
+                posisi_y = letter[1] - 210 
+                
+                # Menggambar gambar transparan tepat di belakang teks KURNIA SANUSI FARM
                 canvas.drawImage(nama_file_logo, posisi_x, posisi_y, width=lebar_logo, height=tinggi_logo, mask='auto')
                 canvas.restoreState()
             except Exception:
