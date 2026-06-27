@@ -294,7 +294,7 @@ conn.commit()
 # FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
-    st.title("💸 Rekap Keuangan")
+    st.title("💸 Laporan Keuangan")
     df = pd.read_sql("SELECT * FROM produksi", conn)
     df_pengeluaran = pd.read_sql("SELECT * FROM pengeluaran", conn)
 
@@ -315,34 +315,53 @@ if menu == "Dashboard":
         grand_total_pengeluaran = df_pengeluaran["jumlah"].sum() if not df_pengeluaran.empty else 0
         keuntungan_bersih = grand_total_pendapatan - grand_total_pengeluaran
         
-        # === BAGIAN METRIK KEUANGAN YANG SUDAH DIPERBAIKI ===
+        # === BAGIAN METRIK KEUANGAN ===
         c1, c2, c3 = st.columns(3)
         c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
         c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
         
         # -----------------------------------------------------------------
-        # KODE YANG SUDAH DIPERBAIKI (TIDAK DOUBLE LAGI)
+        # BAGIAN KEUNTUNGAN BERSIH YANG DIUBAH (HANYA BADGE BERWARNA)
         # -----------------------------------------------------------------
-        nominal_bersih_abs = abs(keuntungan_bersih) # Angka di teks utama selalu positif
-        teks_utama = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
+        nominal_bersih_abs = abs(keuntungan_bersih)
+        teks_rupiah = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
         
         if keuntungan_bersih < 0:
-            status_delta = "- Keadaan: Rugi"  # Tanda (-) membuat otomatis berwarna MERAH
+            warna_bg = "#fee2e2"      # Merah muda lembut
+            warna_teks = "#991b1b"    # Merah tua
+            simbol_panah = "↓"
+            status_teks = "Rugi"
+            tanda_minus = "-"
         else:
-            status_delta = "Keadaan: Untung"  # Tanpa (-) otomatis berwarna HIJAU
-            
-        # Tampilkan metrik keuntungan bersih tanpa dobel nominal rupiah
-        c3.metric(
-            label="📈 Keuntungan Bersih", 
-            value=teks_utama, 
-            delta=status_delta, 
-            delta_color="normal" 
-        )
+            warna_bg = "#dcfce7"      # Hijau muda lembut
+            warna_teks = "#166534"    # Hijau tua
+            simbol_panah = "↑"
+            status_teks = "Untung"
+            tanda_minus = ""
+
+        # Menampilkan judul kecil di kolom 3
+        c3.markdown("<p style='margin:0; font-size:14px; color:rgb(49, 51, 63); font-weight:400;'>📈 Keuntungan Bersih</p>", unsafe_allow_html=True)
+        
+        # Menampilkan pill/badge merah atau hijau saja di bawah judul
+        c3.markdown(f"""
+            <div style="
+                display: inline-block; 
+                background-color: {warna_bg}; 
+                color: {warna_teks}; 
+                padding: 4px 12px; 
+                border-radius: 12px; 
+                font-size: 16px; 
+                font-weight: 500;
+                margin-top: 8px;
+            ">
+                {simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})
+            </div>
+        """, unsafe_allow_html=True)
         # -----------------------------------------------------------------
 
         st.divider()
         
-        st.title("🥚 Total Produksi Telur")
+        st.title("🥚 Laporan Produksi Telur")
         cx1, cx2, cx3 = st.columns(3)
         cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " butir")
         cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " butir")
@@ -351,15 +370,6 @@ if menu == "Dashboard":
         st.divider()
 
         df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
-
-        fig = px.line(
-            df, x="tanggal", y=["ayam", "bebek", "puyuh"], markers=True,
-            title="Grafik Tren Produksi Harian",
-            color_discrete_map={"ayam": "#8B4513", "bebek": "#87CEFA", "puyuh": "#ffff00"}
-        )
-        fig.update_xaxes(tickformat="%d %b %Y")
-        fig.update_layout(legend_title="Jenis Telur", template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
 
 # ==========================
 # FITUR MENU 2: INPUT PRODUKSI
