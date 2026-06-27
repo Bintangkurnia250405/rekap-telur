@@ -298,7 +298,7 @@ if menu == "Dashboard":
     st.markdown(
         """
         <div style="color: #31333F; font-family: sans-serif; line-height: 1.3;">
-            <div style="font-size: 25px; font-weight: 700; padding: 4px 8px;">
+            <div style="font-size: 25px; font-weight: 700; padding: 4px 8px;background-color: #E0F2FE; display: inline-block; padding: 4px 12px; border-radius: 6px;"">
                 📊 Dashboard Analisis
             </div>
             <div style="font-size: 25px; font-weight: 700; margin-left: 38px; margin-top: 2px; background-color: #E0F2FE; display: inline-block; padding: 4px 12px; border-radius: 6px;">
