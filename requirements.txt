@@ -3,4 +3,4 @@ pandas
 plotly
 openpyxl
 reportlab
-streamlit-authenticator==0.3.4
+streamlit-authenticator==0.3.2
