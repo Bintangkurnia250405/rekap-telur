@@ -23,9 +23,9 @@ st.set_page_config(page_title="Kurnia Sanusi Farm", layout="wide")
 config = {
     'credentials': {
         'usernames': {
-            'KURNIA SANUSI FARM': {
+            'KSF': {
                 'name': 'Kurnia Sanusi',
-                'password': '$2b$12$E0Wz6U85wLpExF8055E/re0W2Iq98bCHn37B.M6fXp/vUvS2FhZg6' # <--- Ini adalah Hash aman untuk 'KFS30#'
+                'password': '$2b$12$E0Wz6U85wLpExF8055E/re0W2Iq98bCHn37B.M6fXp/vUvS2FhZg6' # <--- Ini adalah Hash aman untuk 'KSF30#'
             }
         }
     },
