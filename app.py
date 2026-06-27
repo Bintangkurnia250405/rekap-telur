@@ -190,7 +190,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     story.append(tabel_kop)
     
     # GARIS PEMBATAS SOLID
-    story.append(Spacer(1, 8 )
+    story.append(Spacer(1, 4 ))
     garis_kop = Table([[""]], colWidths=[letter[0] - 60], rowHeights=[2])
     garis_kop.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#444444')),
