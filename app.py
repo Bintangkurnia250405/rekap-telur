@@ -92,7 +92,7 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan dengan Format Kop Surat Resmi (Logo Kiri, Teks Kanan)
+# Fungsi Pembuat PDF Laporan dengan Format Kop Surat Resmi Bergaris
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -100,91 +100,81 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     
     styles = getSampleStyleSheet()
     
-    # Penyesuaian gaya teks agar rata kiri (alignment=0) menyesuaikan format kop surat
+    # Gaya Nama Farm (Besar & Cokelat)
     farm_style = ParagraphStyle(
         'FarmPDF',
         parent=styles['Heading1'],
         fontSize=18,
         leading=22,
         textColor=colors.HexColor('#8B4513'),
-        alignment=0, # 0 = Rata Kiri
-        spaceAfter=2
+        alignment=0,
+        spaceAfter=1
     )
     
+    # Gaya Alamat & Cetak (Kecil, Abu-abu, Rata Kiri)
+    sub_style = ParagraphStyle(
+        'SubJudulPDF',
+        parent=styles['Normal'],
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.gray,
+        alignment=0,
+        spaceAfter=0
+    )
+    
+    # Gaya Judul Laporan di Bawah Garis (Sedikit Lebih Besar & Rata Kiri)
     title_style = ParagraphStyle(
         'JudulPDF',
         parent=styles['Heading2'],
-        fontSize=12,
-        leading=15,
+        fontSize=13,
+        leading=16,
         textColor=colors.HexColor('#A0522D'),
-        alignment=0, # 0 = Rata Kiri
+        alignment=0,
         spaceAfter=2
     )
     
+    # Gaya Periode Tanggal di Bawah Garis
     date_style = ParagraphStyle(
         'TanggalPDF',
         parent=styles['Normal'],
         fontSize=10,
         leading=13,
         textColor=colors.HexColor('#444444'),
-        alignment=0, # 0 = Rata Kiri
+        alignment=0,
         spaceAfter=2
     )
-    
-    sub_style = ParagraphStyle(
-        'SubJudulPDF',
-        parent=styles['Normal'],
-        fontSize=9,
-        textColor=colors.gray,
-        alignment=0, # 0 = Rata Kiri
-        spaceAfter=0
-    )
 
-    # --- MEMBUAT KOP SURAT (LOGO KIRI, TEKS KANAN) ---
+    # --- MEMBUAT KOP UTAMA (DI ATAS GARIS) ---
     nama_file_logo_baru = "LogoLaporan.png"
-    
-    # Siapkan tempat penampung objek logo di sebelah kiri
     komponen_kiri = []
+    
     if os.path.exists(nama_file_logo_baru):
         try:
-            # Menggunakan ukuran logo standar kop surat (tinggi sekitar 60-65)
-            logo_kop = Image(nama_file_logo_baru, width=65, height=65)
+            logo_kop = Image(nama_file_logo_baru, width=60, height=60)
             logo_kop.hAlign = 'LEFT'
             komponen_kiri.append(logo_kop)
         except Exception:
-            # Jika file gambar rusak, dikosongkan agar tidak error
             komponen_kiri.append(Paragraph("", styles['Normal']))
     else:
-        # Jika file belum ada/sedang diproses, disiapkan spasi kosong selebar logo agar teks kanan tidak bergeser
-        komponen_kiri.append(Spacer(65, 65))
+        komponen_kiri.append(Spacer(60, 60))
     
-    # Siapkan informasi teks di sebelah kanan
     komponen_kanan = []
     komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
-    komponen_kanan.append(Paragraph(jenis_laporan.upper(), title_style))
-    komponen_kanan.append(Paragraph(f"Periode: {tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
+    komponen_kanan.append(Paragraph("JL. CILENGKRANG 2 KP. MEKARSARI RT.02 RW.01 KEL. PALASARI KEC. CIBIRU KOTA BANDUNG 40615 NO.70", sub_style))
     
-    waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
-    komponen_kanan.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
-    
-    # Gabungkan kiri dan kanan ke dalam Tabel Kop Surat
-    # Kolom 1 (Kiri) lebar 80 unit kertas, Kolom 2 (Kanan) sisa lebar halaman (lebar total letter dikurangi margin & kolom 1)
-    lebar_kolom_kanan = letter[0] - 60 - 80 
-    tabel_kop = Table([[komponen_kiri, komponen_kanan]], colWidths=[80, lebar_kolom_kanan])
-    
+    lebar_kolom_kanan = letter[0] - 60 - 75 
+    tabel_kop = Table([[komponen_kiri, komponen_kanan]], colWidths=[75, lebar_kolom_kanan])
     tabel_kop.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # Teks dan logo sejajar tegak lurus di tengah
-        ('LEFTPADDING', (1,0), (1,0), 10),     # Memberikan jarak antara logo dan teks di sebelah kanannya
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (1,0), (1,0), 5),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ('TOPPADDING', (0,0), (-1,-1), 0),
     ]))
-    
     story.append(tabel_kop)
     
-    # Menambahkan garis hitam tebal di bawah Kop Surat (seperti contoh gambar)
-    # Kita gunakan tabel tipis dengan latar belakang gelap sebagai garis pemisah yang solid
-    story.append(Spacer(1, 10))
+    # GARIS PEMBATAS SOLID
+    story.append(Spacer(1, 8))
     garis_kop = Table([[""]], colWidths=[letter[0] - 60], rowHeights=[2])
     garis_kop.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#444444')),
@@ -192,9 +182,17 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         ('TOPPADDING', (0,0), (-1,-1), 0),
     ]))
     story.append(garis_kop)
-    story.append(Spacer(1, 15)) # Jarak antara garis kop surat ke tabel data laporan
+    
+    # --- DETAIL INFORMASI (DI BAWAH GARIS) ---
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(jenis_laporan.upper(), title_style))
+    story.append(Paragraph(f"Periode: {tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
+    
+    waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
+    story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
+    story.append(Spacer(1, 15))
 
-    # --- BAGIAN DATA TABEL LAPORAN ---
+    # --- DATA TABEL LAPORAN ---
     headers = []
     for col in df_data.columns:
         if col == "tanggal":
@@ -205,7 +203,6 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             headers.append(col)
 
     data_tabel = [headers] + df_data.values.tolist()
-    
     for i in range(len(data_tabel)):
         for j in range(len(data_tabel[i])):
             data_tabel[i][j] = str(data_tabel[i][j])
@@ -224,8 +221,6 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     ]))
     
     story.append(t)
-    
-    # Karena logo sudah diatur lewat tabel di atas, build dokumen cukup seperti biasa tanpa callback background
     doc.build(story)
     buffer.seek(0)
     return buffer
