@@ -294,82 +294,115 @@ conn.commit()
 # FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
-    st.title("💸 Laporan Keuangan")
-    df = pd.read_sql("SELECT * FROM produksi", conn)
-    df_pengeluaran = pd.read_sql("SELECT * FROM pengeluaran", conn)
+    st.title("📊 Dashboard Analisis Kurnia Sanusi Farm")
+    
+    # Ambil semua data mentah untuk menentukan nilai batas min & max tanggal di komponen input
+    df_raw = pd.read_sql("SELECT * FROM produksi", conn)
+    df_pengeluaran_raw = pd.read_sql("SELECT * FROM pengeluaran", conn)
 
-    if df.empty:
-        st.info("Belum ada data produksi.")
+    if df_raw.empty:
+        st.info("Belum ada data produksi untuk ditampilkan di dashboard.")
     else:
-        df = df.sort_values(by="tanggal").reset_index(drop=True)
+        # Menentukan rentang tanggal default (Min dan Max dari database)
+        min_date_db = datetime.strptime(df_raw["tanggal"].min(), "%Y-%m-%d").date()
+        max_date_db = datetime.strptime(df_raw["tanggal"].max(), "%Y-%m-%d").date()
+
+        # --- TAMBAHAN WIDGET FILTER RENTANG TANGGAL DASHBOARD ---
+        st.markdown("### 🔍 Filter Analisis Berdasarkan Periode")
+        col_tgl1, col_tgl2 = st.columns(2)
+        with col_tgl1:
+            tgl_mulai_dash = st.date_input("Dari Tanggal", value=min_date_db, key="dash_tgl_mulai")
+        with col_tgl2:
+            tgl_selesai_dash = st.date_input("Sampai Tanggal", value=max_date_db, key="dash_tgl_selesai")
         
-        total_ayam = df["ayam"].sum()
-        total_bebek = df["bebek"].sum()
-        total_puyuh = df["puyuh"].sum()
-        
-        pendapatan_ayam = total_ayam * HARGA_AYAM
-        pendapatan_bebek = total_bebek * HARGA_BEBEK
-        pendapatan_puyuh = total_puyuh * HARGA_PUYUH
-        
-        grand_total_pendapatan = pendapatan_ayam + pendapatan_bebek + pendapatan_puyuh
-        grand_total_pengeluaran = df_pengeluaran["jumlah"].sum() if not df_pengeluaran.empty else 0
-        keuntungan_bersih = grand_total_pendapatan - grand_total_pengeluaran
-        
-        # === BAGIAN METRIK KEUANGAN ===
-        c1, c2, c3 = st.columns(3)
-        c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
-        c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
-        
-        # -----------------------------------------------------------------
-        # BAGIAN KEUNTUNGAN BERSIH YANG DIUBAH (HANYA BADGE BERWARNA)
-        # -----------------------------------------------------------------
-        nominal_bersih_abs = abs(keuntungan_bersih)
-        teks_rupiah = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
-        
-        if keuntungan_bersih < 0:
-            warna_bg = "#fee2e2"      # Merah muda lembut
-            warna_teks = "#991b1b"    # Merah tua
-            simbol_panah = "↓"
-            status_teks = "Rugi"
-            tanda_minus = "-"
+        st.divider()
+
+        # Proses Filtering Data Produksi Berdasarkan Input Tanggal
+        df_raw["tanggal_dt"] = pd.to_datetime(df_raw["tanggal"]).dt.date
+        df = df_raw[(df_raw["tanggal_dt"] >= tgl_mulai_dash) & (df_raw["tanggal_dt"] <= tgl_selesai_dash)].copy()
+        df = df.drop(columns=["tanggal_dt"])
+
+        # Proses Filtering Data Pengeluaran Berdasarkan Input Tanggal
+        if not df_pengeluaran_raw.empty:
+            df_pengeluaran_raw["tanggal_dt"] = pd.to_datetime(df_pengeluaran_raw["tanggal"]).dt.date
+            df_pengeluaran = df_pengeluaran_raw[(df_pengeluaran_raw["tanggal_dt"] >= tgl_mulai_dash) & (df_pengeluaran_raw["tanggal_dt"] <= tgl_selesai_dash)].copy()
+            df_pengeluaran = df_pengeluaran.drop(columns=["tanggal_dt"])
         else:
-            warna_bg = "#dcfce7"      # Hijau muda lembut
-            warna_teks = "#166534"    # Hijau tua
-            simbol_panah = "↑"
-            status_teks = "Untung"
-            tanda_minus = ""
+            df_pengeluaran = df_pengeluaran_raw.copy()
 
-        # Menampilkan judul kecil di kolom 3
-        c3.markdown("<p style='margin:0; font-size:14px; color:rgb(49, 51, 63); font-weight:400;'>📈 Keuntungan Bersih</p>", unsafe_allow_html=True)
-        
-        # Menampilkan pill/badge merah atau hijau saja di bawah judul
-        c3.markdown(f"""
-            <div style="
-                display: inline-block; 
-                background-color: {warna_bg}; 
-                color: {warna_teks}; 
-                padding: 4px 12px; 
-                border-radius: 12px; 
-                font-size: 16px; 
-                font-weight: 500;
-                margin-top: 8px;
-            ">
-                {simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})
-            </div>
-        """, unsafe_allow_html=True)
-        # -----------------------------------------------------------------
+        # Tampilkan info jika hasil filter kosong
+        if df.empty:
+            st.warning("Tidak ada data produksi pada rentang tanggal terpilih.")
+        else:
+            df = df.sort_values(by="tanggal").reset_index(drop=True)
+            
+            # Hitung kalkulasi berdasarkan data yang sudah ter-filter rentang tanggal
+            total_ayam = df["ayam"].sum()
+            total_bebek = df["bebek"].sum()
+            total_puyuh = df["puyuh"].sum()
+            
+            pendapatan_ayam = total_ayam * HARGA_AYAM
+            pendapatan_bebek = total_bebek * HARGA_BEBEK
+            pendapatan_puyuh = total_puyuh * HARGA_PUYUH
+            
+            grand_total_pendapatan = pendapatan_ayam + pendapatan_bebek + pendapatan_puyuh
+            grand_total_pengeluaran = df_pengeluaran["jumlah"].sum() if not df_pengeluaran.empty else 0
+            keuntungan_bersih = grand_total_pendapatan - grand_total_pengeluaran
+            
+            # === BAGIAN METRIK KEUANGAN ===
+            st.subheader("💸 Laporan Keuangan")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
+            c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
+            
+            # BAGIAN KEUNTUNGAN BERSIH (BADGE BERWARNA)
+            nominal_bersih_abs = abs(keuntungan_bersih)
+            teks_rupiah = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
+            
+            if keuntungan_bersih < 0:
+                warna_bg = "#fee2e2"      # Merah muda lembut
+                warna_teks = "#991b1b"    # Merah tua
+                simbol_panah = "↓"
+                status_teks = "Rugi"
+                tanda_minus = "-"
+            else:
+                warna_bg = "#dcfce7"      # Hijau muda lembut
+                warna_teks = "#166534"    # Hijau tua
+                simbol_panah = "↑"
+                status_teks = "Untung"
+                tanda_minus = ""
 
-        st.divider()
-        
-        st.title("🥚 Laporan Produksi Telur")
-        cx1, cx2, cx3 = st.columns(3)
-        cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " Butir")
-        cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " Butir")
-        cx3.metric("🐦 Telur Puyuh", f"{total_puyuh:,}".replace(",", ".") + " Butir")
+            # Menampilkan judul kecil di kolom 3
+            c3.markdown("<p style='margin:0; font-size:14px; color:rgb(49, 51, 63); font-weight:400;'>📈 Keuntungan Bersih</p>", unsafe_allow_html=True)
+            
+            # Menampilkan pill/badge merah atau hijau saja di bawah judul
+            c3.markdown(f"""
+                <div style="
+                    display: inline-block; 
+                    background-color: {warna_bg}; 
+                    color: {warna_teks}; 
+                    padding: 4px 12px; 
+                    border-radius: 12px; 
+                    font-size: 16px; 
+                    font-weight: 500;
+                    margin-top: 8px;
+                ">
+                    {simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})
+                </div>
+            """, unsafe_allow_html=True)
 
-        st.divider()
+            st.divider()
+            
+            # === BAGIAN METRIK PRODUKSI TELUR ===
+            st.subheader("🥚 Laporan Produksi Telur")
+            cx1, cx2, cx3 = st.columns(3)
+            cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " Butir")
+            cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " Butir")
+            cx3.metric("🐦 Telur Puyuh", f"{total_puyuh:,}".replace(",", ".") + " Butir")
 
-        df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
+            st.divider()
+
+            df["Total"] = df["ayam"] + df["bebek"] + df["puyuh"]
 
 # ==========================
 # FITUR MENU 2: INPUT PRODUKSI
