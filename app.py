@@ -225,6 +225,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             
     t = Table(data_tabel, hAlign='CENTER')
     t.setStyle(TableStyle([
+        # Header Atas (Krem & Cokelat Tua)
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FFF8EE')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#8B4513')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -234,6 +235,11 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        
+        # TAMBAHAN: Mewarnai Baris TOTAL (Menggunakan indeks -1 untuk baris paling akhir)
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FFF8EE')),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#8B4513')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
     ]))
     
     story.append(t)
