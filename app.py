@@ -52,15 +52,21 @@ authenticator = stauth.Authenticate(
 )
 
 # ==========================================
-# 2. HALAMAN LOGIN (BERDIRI SENDIRI)
+# 2. HALAMAN LOGIN (BERDIRI SENDIRI - VERSI BARU)
 # ==========================================
-name, authentication_status, username = authenticator.login(location='main')
+# Di versi streamlit-authenticator terbaru, .login hanya menerima parameter single string untuk lokasi
+authenticator.login() 
+
+# Ambil status login langsung dari session state streamlit
+authentication_status = st.session_state.get("authentication_status")
+name = st.session_state.get("name")
+username = st.session_state.get("username")
 
 if authentication_status == False:
     st.error('Username atau Password salah!')
     st.stop()  # Mengunci halaman jika password salah
 
-elif authentication_status == None:
+elif authentication_status == None or authentication_status == "":
     st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
     st.stop()  # Mengunci halaman jika belum mengisi form login
 
