@@ -26,21 +26,26 @@ st.set_page_config(
 conn = sqlite3.connect("rekap_telur.db", check_same_thread=False)
 
 # ==========================================
-# 1. KONFIGURASI AKUN LOGIN
+# 1. KONFIGURASI AKUN LOGIN (VERSI AUTO-HASH)
 # ==========================================
+
+# Kita buat hash yang valid secara langsung menggunakan Hasher bawaan pustaka
+password_terbuka = ['KSF30']
+password_terhash = stauth.Hasher(password_terbuka).generate()
+
 config = {
     'credentials': {
         'usernames': {
             'KSF': {
                 'name': 'Kurnia Sanusi',
-                'password': '$2b$12$K8M9z1lS7vU.G5gYm9ZcIex02K0Fh9pZ7eKx2nF4N6M4E2bXq6eG2' # Hash dari 'KSF30'
+                'password': password_terhash[0]  # Mengambil hasil hash yang pasti cocok dengan 'KSF30'
             }
         }
     },
     'cookie': {
         'expiry_days': 30,
-        'key': 'kurnia_farm_secret_cookie',
-        'name': 'kurnia_farm_auth'
+        'key': 'kurnia_farm_secret_cookie_v2', # Mengubah key cookie untuk reset paksa cookie lama
+        'name': 'kurnia_farm_auth_v2'
     }
 }
 
@@ -53,20 +58,20 @@ authenticator = stauth.Authenticate(
 )
 
 # ==========================================
-# 2. HALAMAN LOGIN (BERDIRI SENDIRI - VERSI FIX)
+# 2. HALAMAN LOGIN (BERDIRI SENDIRI)
 # ==========================================
-# Pada versi 0.3.2, login mengembalikan status langsung dari fungsi call-nya.
-# Kita bungkus dalam form utama dengan judul 'Login'
-name, authentication_status, username = authenticator.login(location='main')
 
-# Logika pengecekan status login yang benar untuk mencegah st.stop() prematur
+# Pada versi 0.3.2, argumen pertama diisi teks judul form, argumen kedua adalah lokasi render-nya
+name, authentication_status, username = authenticator.login('Masuk ke Sistem', location='main')
+
+# Logika kontrol halaman
 if authentication_status == False:
     st.error('Username atau Password salah!')
-    st.stop()  # Mengunci halaman jika password salah setelah tombol ditekan
+    st.stop() 
 
-elif authentication_status == None or authentication_status == "":
+elif authentication_status is None or authentication_status == "":
     st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
-    st.stop()  # Mengunci halaman jika belum mengisi form login
+    st.stop()
 # ==========================================
 # 3. HALAMAN UTAMA / DASHBOARD (SETELAH BERHASIL LOGIN)
 # ==========================================
