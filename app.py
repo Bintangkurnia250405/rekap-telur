@@ -92,7 +92,7 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan dengan Kop Baru & Gambar Transparan
+# Fungsi Pembuat PDF Laporan dengan Kop Baru & Gambar Transparan di Belakang Teks
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -139,16 +139,29 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         spaceAfter=20
     )
     
-    # 1. TAMBAHKAN GAMBAR LOGO TRANSPARAN SEBELUM JUDUL (JIKA ADA)
-    if os.path.exists(nama_file_logo):
-        try:
-            # Lebar 65 & Tinggi 65 pixel agar pas di tengah-tengah atas kop
-            logo_pdf = Image(nama_file_logo, width=65, height=65)
-            logo_pdf.hAlign = 'CENTER'
-            story.append(logo_pdf)
-            story.append(Spacer(1, 8)) # Jarak kecil antara logo dan nama farm
-        except Exception:
-            pass
+    # --- FUNGSI WATERMARK BACKGROUND TRANSPARAN ---
+    def tambah_background_logo(canvas, doc):
+        if os.path.exists(nama_file_logo):
+            try:
+                canvas.saveState()
+                # Mengatur transparansi gambar (0.15 berarti transparansi 15% agar teks tetap terbaca tajam)
+                canvas.setFillAlpha(0.15) 
+                
+                # Menghitung posisi tengah halaman letter (Lebar: 612, Tinggi: 792)
+                # Teks KURNIA SANUSI FARM ada di bagian atas, mari tempatkan logo di area atas belakang teks
+                lebar_logo = 120
+                tinggi_logo = 120
+                posisi_x = (letter[0] - lebar_logo) / 2
+                posisi_y = letter[1] - 150 # Menyesuaikan posisi tepat di belakang teks nama farm
+                
+                # Menggambar gambar transparan ke canvas background
+                canvas.drawImage(nama_file_logo, posisi_x, posisi_y, width=lebar_logo, height=tinggi_logo, mask='auto')
+                canvas.restoreState()
+            except Exception:
+                pass
+
+    # Beri jarak spasi atas agar teks nama farm sejajar simetris dengan watermark belakangnya
+    story.append(Spacer(1, 25))
 
     # Header Laporan Baru
     story.append(Paragraph("KURNIA SANUSI FARM", farm_style))
@@ -188,7 +201,10 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     ]))
     
     story.append(t)
-    doc.build(story)
+    
+    # BANGUN DOKUMEN dengan memanggil fungsi callback background watermark
+    doc.build(story, onFirstPage=tambah_background_logo, onLaterPages=tambah_background_logo)
+    
     buffer.seek(0)
     return buffer
 
