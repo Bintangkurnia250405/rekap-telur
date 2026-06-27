@@ -188,7 +188,8 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     komponen_kanan = []
     komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
     komponen_kanan.append(Paragraph("JL. CILENGKRANG 2 KP. MEKARSARI RT.02 RW.01 NO.70", sub_style))
-    komponen_kanan.append(Paragraph("KELURAHAN. PALASARI KECAMATAN. CIBIRU KOTA BANDUNG 40615 NO TELP : 081220861824", sub_style))
+    komponen_kanan.append(Paragraph("KELURAHAN. PALASARI KECAMATAN. CIBIRU KOTA BANDUNG 40615", sub_style))
+    komponen_kanan.append(Paragraph("NO TELP : 081220861824", sub_style))
     
     lebar_kolom_kanan = letter[0] - 60 - 75 
     tabel_kop = Table([[komponen_kiri, komponen_kanan]], colWidths=[75, lebar_kolom_kanan])
