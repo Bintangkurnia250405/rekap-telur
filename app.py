@@ -164,7 +164,9 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
             logo_kop = Image(nama_file_logo_baru, width=60, height=60)
             logo_kop.hAlign = 'LEFT'
             komponen_kiri.append(logo_kop)
-        except Exception:
+        except Exception as e:
+            # Mengubah baris ini agar kita tahu error pastinya di terminal/cmd
+            print(f"Gagal memuat logo karena: {e}")
             komponen_kiri.append(Paragraph("", styles['Normal']))
     else:
         komponen_kiri.append(Spacer(60, 60))
