@@ -9,7 +9,7 @@ import io
 
 # Import untuk membuat PDF resmi
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Image, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -92,7 +92,7 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan dengan Kop Baru
+# Fungsi Pembuat PDF Laporan dengan Kop Baru & Gambar Transparan
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -139,7 +139,18 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         spaceAfter=20
     )
     
-    # Header Laporan Baru (Tanggal dipindah ke baris baru)
+    # 1. TAMBAHKAN GAMBAR LOGO TRANSPARAN SEBELUM JUDUL (JIKA ADA)
+    if os.path.exists(nama_file_logo):
+        try:
+            # Lebar 65 & Tinggi 65 pixel agar pas di tengah-tengah atas kop
+            logo_pdf = Image(nama_file_logo, width=65, height=65)
+            logo_pdf.hAlign = 'CENTER'
+            story.append(logo_pdf)
+            story.append(Spacer(1, 8)) # Jarak kecil antara logo dan nama farm
+        except Exception:
+            pass
+
+    # Header Laporan Baru
     story.append(Paragraph("KURNIA SANUSI FARM", farm_style))
     story.append(Paragraph(jenis_laporan.upper(), title_style))
     story.append(Paragraph(f"({tgl_mulai_str} S/D {tgl_selesai_str})", date_style))
@@ -283,7 +294,6 @@ elif menu == "Input Produksi":
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
                 jam_wib = ambil_jam_wib()
-                # PERBAIKAN FIXED: Mengubah UPDATEBox menjadi UPDATE biasa agar tidak memicu OperationalError sqlite3
                 conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
                 conn.commit()
                 st.success(f"Data tanggal {str_tanggal_indo} berhasil diperbarui pada jam {jam_wib} WIB!")
