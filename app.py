@@ -302,7 +302,7 @@ if menu == "Dashboard":
                 📊 Dashboard Analisis
             </div>
             <div style="font-size: 25px; font-weight: 700; margin-left: 33px; margin-top: -5px;">
-                Kurnia Sanusi Farm
+                 Kurnia Sanusi Farm
             </div>
         </div>
         <br>
