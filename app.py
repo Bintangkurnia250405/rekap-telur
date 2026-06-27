@@ -139,15 +139,25 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         spaceAfter=20
     )
     
-    # Header Laporan Baru
+    # Header Laporan Baru (Tanggal dipindah ke baris baru)
     story.append(Paragraph("KURNIA SANUSI FARM", farm_style))
     story.append(Paragraph(jenis_laporan.upper(), title_style))
-    story.append(Paragraph(f"{tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
+    story.append(Paragraph(f"({tgl_mulai_str} S/D {tgl_selesai_str})", date_style))
     
     waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
     story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
     
-    data_tabel = [df_data.columns.tolist()] + df_data.values.tolist()
+    # Mengubah nama kolom header pada PDF menjadi huruf kapital di awal (Capital Case)
+    headers = []
+    for col in df_data.columns:
+        if col == "tanggal":
+            headers.append("Tanggal")
+        elif col == "jam":
+            headers.append("Jam")
+        else:
+            headers.append(col)
+
+    data_tabel = [headers] + df_data.values.tolist()
     
     for i in range(len(data_tabel)):
         for j in range(len(data_tabel[i])):
@@ -350,7 +360,9 @@ elif menu == "Data Produksi":
             }])
             df_tabel = pd.concat([df_tabel, row_total], ignore_index=True)
 
-            st.dataframe(df_tabel, use_container_width=True, hide_index=True)
+            # Mengubah nama kolom agar berhuruf kapital di awal ("Tanggal" & "Jam") saat ditampilkan di Streamlit
+            df_tampil_produksi = df_tabel.rename(columns={"tanggal": "Tanggal", "jam": "Jam", "ayam": "Ayam", "bebek": "Bebek", "puyuh": "Puyuh"})
+            st.dataframe(df_tampil_produksi, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
@@ -366,7 +378,7 @@ elif menu == "Data Produksi":
                 )
             with btn_col2:
                 excel = "rekap_telur_filter.xlsx"
-                df_tabel.to_excel(excel, index=False)
+                df_tampil_produksi.to_excel(excel, index=False)
                 with open(excel, "rb") as file:
                     st.download_button("⬇ Download File Excel", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
@@ -439,7 +451,9 @@ elif menu == "Data Pendapatan":
             df_tabel_uang["Uang Puyuh (Rp)"] = df_tabel_uang["Uang Puyuh (Rp)"].apply(format_rupiah_kustom)
             df_tabel_uang["Total Pendapatan (Rp)"] = df_tabel_uang["Total Pendapatan (Rp)"].apply(format_rupiah_kustom)
 
-            st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
+            # Mengubah nama kolom agar berhuruf kapital di awal ("Tanggal" & "Jam") saat ditampilkan di Streamlit
+            df_tampil_pendapatan = df_tabel_uang.rename(columns={"tanggal": "Tanggal", "jam": "Jam"})
+            st.dataframe(df_tampil_pendapatan, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
@@ -455,7 +469,7 @@ elif menu == "Data Pendapatan":
                 )
             with btn_col2:
                 excel_keuangan = "rekap_pendapatan_filter.xlsx"
-                df_tabel_uang.to_excel(excel_keuangan, index=False)
+                df_tampil_pendapatan.to_excel(excel_keuangan, index=False)
                 with open(excel_keuangan, "rb") as file_keuangan:
                     st.download_button("⬇ Download File Excel", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
@@ -513,7 +527,9 @@ elif menu == "Data Pengeluaran":
             # PERBAIKAN FORMAT UANG: Mengubah tampilan nominal jumlah pengeluaran menggunakan titik (.)
             df_tabel_keluar["Jumlah (Rp)"] = df_tabel_keluar["Jumlah (Rp)"].apply(format_rupiah_kustom)
 
-            st.dataframe(df_tabel_keluar, use_container_width=True, hide_index=True)
+            # Mengubah nama kolom agar berhuruf kapital di awal ("Tanggal" & "Jam") saat ditampilkan di Streamlit
+            df_tampil_pengeluaran = df_tabel_keluar.rename(columns={"tanggal": "Tanggal", "jam": "Jam", "keterangan": "Keterangan"})
+            st.dataframe(df_tampil_pengeluaran, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
@@ -529,7 +545,7 @@ elif menu == "Data Pengeluaran":
                 )
             with btn_col2:
                 excel_keluar = "rekap_pengeluaran_filter.xlsx"
-                df_tabel_keluar.to_excel(excel_keluar, index=False)
+                df_tampil_pengeluaran.to_excel(excel_keluar, index=False)
                 with open(excel_keluar, "rb") as file_keluar:
                     st.download_button("⬇ Download File Excel", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
 
