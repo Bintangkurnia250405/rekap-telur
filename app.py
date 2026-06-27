@@ -115,8 +115,8 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     sub_style = ParagraphStyle(
         'SubJudulPDF',
         parent=styles['Normal'],
-        fontSize=8.5,
-        leading=11,
+        fontSize=10,
+        leading=13,
         textColor=colors.gray,
         alignment=0,
         spaceAfter=0
