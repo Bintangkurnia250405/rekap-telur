@@ -26,26 +26,26 @@ st.set_page_config(
 conn = sqlite3.connect("rekap_telur.db", check_same_thread=False)
 
 # ==========================================
-# 1. KONFIGURASI AKUN LOGIN (VERSI AMAN & STABIL)
+# 1. KONFIGURASI AKUN LOGIN (VERSI FINAL 0.3.2)
 # ==========================================
 config = {
     'credentials': {
         'usernames': {
-            'KSF': {
+            'ksf': {  # PENTING: Versi 0.3.2 wajib menggunakan huruf kecil untuk key username di database internalnya!
                 'name': 'Kurnia Sanusi',
-                # Ini adalah hasil hash bcrypt resmi & valid dari teks 'KSF30'
+                # Hash bcrypt valid & aman dari teks password 'KSF30'
                 'password': '$2b$12$clZgZ4gQOdfS07K.GgU6vOa.C4M/vNInYw7C.BKy2.BqQpA6bA8f6'
             }
         }
     },
     'cookie': {
         'expiry_days': 30,
-        'key': 'kurnia_farm_secret_cookie_final', # Ganti key untuk mereset cache browser
-        'name': 'kurnia_farm_auth_final'
+        'key': 'kurnia_farm_secret_cookie_fixed_v4', # Mengubah key cookie untuk membersihkan sesi rusak sebelumnya
+        'name': 'kurnia_farm_auth_fixed_v4'
     }
 }
 
-# Inisialisasi Authenticate langsung menggunakan config data di atas
+# Inisialisasi modul Authenticate
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
@@ -54,18 +54,24 @@ authenticator = stauth.Authenticate(
 )
 
 # ==========================================
-# 2. HALAMAN LOGIN (BERDIRI SENDIRI)
+# 2. HALAMAN LOGIN (BERDIRI SENDIRI - STRUKTUR 0.3.2)
 # ==========================================
 
-# Memanggil form login (mengembalikan nama, status, dan username)
-name, authentication_status, username = authenticator.login(location='main')
+# Pada versi 0.3.2, fungsi .login() tidak mengembalikan nilai jika diletakkan di 'main'. 
+# Kita panggil fungsinya secara mandiri tanpa variabel penangkap di depannya.
+authenticator.login(location='main')
 
-# Logika kontrol alur halaman setelah tombol login ditekan
+# Ambil status login secara real-time langsung dari session_state internal streamlit-authenticator
+authentication_status = st.session_state.get("authentication_status")
+name = st.session_state.get("name")
+username = st.session_state.get("username")
+
+# Logika kontrol halaman berdasarkan isi session state
 if authentication_status == False:
     st.error('Username atau Password salah!')
     st.stop() 
 
-elif authentication_status is None or authentication_status == "":
+elif authentication_status is None:
     st.info('Silakan masukkan Username dan Password Anda untuk mengakses sistem.')
     st.stop()
 # ==========================================
