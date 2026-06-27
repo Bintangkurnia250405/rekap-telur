@@ -92,7 +92,7 @@ def ambil_jam_wib():
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan dengan Format Kop Surat Resmi Bergaris
+# Fungsi Pembuat PDF Laporan dengan Kop Resmi Bergaris & Judul Rata Tengah Spasi 1
 def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -100,7 +100,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     
     styles = getSampleStyleSheet()
     
-    # Gaya Nama Farm (Besar & Cokelat)
+    # Gaya Nama Farm di dalam Kop
     farm_style = ParagraphStyle(
         'FarmPDF',
         parent=styles['Heading1'],
@@ -111,7 +111,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         spaceAfter=1
     )
     
-    # Gaya Alamat & Cetak (Kecil, Abu-abu, Rata Kiri)
+    # Gaya Alamat di dalam Kop
     sub_style = ParagraphStyle(
         'SubJudulPDF',
         parent=styles['Normal'],
@@ -122,26 +122,37 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
         spaceAfter=0
     )
     
-    # Gaya Judul Laporan di Bawah Garis (Sedikit Lebih Besar & Rata Kiri)
+    # PERBAIKAN: Gaya Judul Laporan di Bawah Garis (Ubah ke alignment=1 / CENTER & leading rapat)
     title_style = ParagraphStyle(
         'JudulPDF',
         parent=styles['Heading2'],
         fontSize=13,
-        leading=16,
+        leading=15, # Setara Spasi 1 (proporsional dengan fontSize 13)
         textColor=colors.HexColor('#A0522D'),
-        alignment=0,
-        spaceAfter=2
+        alignment=1, # 1 = Rata Tengah (Center)
+        spaceAfter=3
     )
     
-    # Gaya Periode Tanggal di Bawah Garis
+    # PERBAIKAN: Gaya Periode Tanggal (Ubah ke alignment=1 / CENTER & leading rapat)
     date_style = ParagraphStyle(
         'TanggalPDF',
         parent=styles['Normal'],
         fontSize=10,
-        leading=13,
+        leading=12, # Setara Spasi 1
         textColor=colors.HexColor('#444444'),
-        alignment=0,
-        spaceAfter=2
+        alignment=1, # 1 = Rata Tengah (Center)
+        spaceAfter=3
+    )
+    
+    # PERBAIKAN: Gaya Informasi Cetak (Ubah ke alignment=1 / CENTER & leading rapat)
+    info_cetak_style = ParagraphStyle(
+        'InfoCetakPDF',
+        parent=styles['Normal'],
+        fontSize=8.5,
+        leading=10.5, # Setara Spasi 1
+        textColor=colors.gray,
+        alignment=1, # 1 = Rata Tengah (Center)
+        spaceAfter=0
     )
 
     # --- MEMBUAT KOP UTAMA (DI ATAS GARIS) ---
@@ -161,6 +172,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     komponen_kanan = []
     komponen_kanan.append(Paragraph("<b>KURNIA SANUSI FARM</b>", farm_style))
     komponen_kanan.append(Paragraph("JL. CILENGKRANG 2 KP. MEKARSARI RT.02 RW.01 KEL. PALASARI KEC. CIBIRU KOTA BANDUNG 40615 NO.70", sub_style))
+    komponen_kanan.append(Paragraph("NO HP : 081220861824", sub_style))
     
     lebar_kolom_kanan = letter[0] - 60 - 75 
     tabel_kop = Table([[komponen_kiri, komponen_kanan]], colWidths=[75, lebar_kolom_kanan])
@@ -183,13 +195,13 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     ]))
     story.append(garis_kop)
     
-    # --- DETAIL INFORMASI (DI BAWAH GARIS) ---
-    story.append(Spacer(1, 10))
+    # --- DETAIL INFORMASI (DI BAWAH GARIS - SEKARANG CENTER & SPASI 1) ---
+    story.append(Spacer(1, 12))
     story.append(Paragraph(jenis_laporan.upper(), title_style))
     story.append(Paragraph(f"Periode: {tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
     
     waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
-    story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
+    story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", info_cetak_style))
     story.append(Spacer(1, 15))
 
     # --- DATA TABEL LAPORAN ---
