@@ -294,11 +294,18 @@ conn.commit()
 # FITUR MENU 1: DASHBOARD
 # ==========================
 if menu == "Dashboard":
-    # MENGGANTI ST.SUBHEADER LAMA AGAR LEBIH RAPAT DAN SEJAJAR
+    # JUDUL DENGAN FONT LEBIH KECIL DAN ALIGNMENT PRESISI
     st.markdown(
         """
-        <h2 style='margin-bottom: 0px; padding-bottom: 0px; font-weight: 600; color: #31333F;'>📊 Dashboard Analisis</h2>
-        <h2 style='margin-top: 0px; padding-top: 4px; font-weight: 600; color: #31333F;'>Kurnia Sanusi Farm</h2>
+        <div style="color: #31333F; font-family: sans-serif; line-height: 1.2;">
+            <div style="font-size: 22px; font-weight: 700;">
+                📊 Dashboard Analisis
+            </div>
+            <div style="font-size: 22px; font-weight: 700; margin-left: 33px; margin-top: -5px;">
+                Kurnia Sanusi Farm
+            </div>
+        </div>
+        <br>
         """, 
         unsafe_allow_html=True
     )
