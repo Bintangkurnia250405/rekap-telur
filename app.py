@@ -315,10 +315,11 @@ if menu == "Dashboard":
         grand_total_pengeluaran = df_pengeluaran["jumlah"].sum() if not df_pengeluaran.empty else 0
         keuntungan_bersih = grand_total_pendapatan - grand_total_pengeluaran
         
+        # === BAGIAN METRIK KEUANGAN YANG SUDAH DIPERBAIKI ===
         c1, c2, c3 = st.columns(3)
-        c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {grand_total_pendapatan:,}".replace(",", "."))
-        c2.metric("💸 Total Pengeluaran", f"Rp {grand_total_pengeluaran:,}".replace(",", "."))
-        c3.metric("📈 Keuntungan Bersih", f"Rp {keuntungan_bersih:,}".replace(",", "."))
+        c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
+        c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
+        c3.metric("📈 Keuntungan Bersih", f"Rp {format_rupiah_kustom(keuntungan_bersih)}")
 
         st.divider()
         
