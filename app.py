@@ -13,6 +13,66 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+import streamlit as st
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
+
+# ==========================================
+# 1. CONFIG USERNAME & PASSWORD (BISA DIGANTI)
+# ==========================================
+# Password di bawah ini menggunakan hash aman, 'admin123' -> menjadi string acak
+config = {
+    'credentials': {
+        'usernames': {
+            'admin': {
+                'name': 'Kurnia Sanusi',
+                'password': '$2b$12$wR7mC.qf2A/O7z.mXpCgBOvYwXfOa9M5RzYwDqEw5G7pE3bXq5eG2' # Ini adalah hash dari 'admin123'
+            }
+        }
+    },
+    'cookie': {
+        'expiry_days': 30,
+        'key': 'kurnia_farm_secret_cookie',
+        'name': 'kurnia_farm_auth'
+    }
+}
+
+# ==========================================
+# 2. PROSES OTENTIKASI
+# ==========================================
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
+)
+
+# Menampilkan Form Login di Layar
+name, authentication_status, username = authenticator.login('Login Peternakan', 'main')
+
+# ==========================================
+# 3. PENGKONDISIAN HALAMAN
+# ==========================================
+if authentication_status == False:
+    st.error('Username atau Password salah!')
+
+elif authentication_status == None:
+    st.warning('Silakan masukkan Username dan Password Anda untuk mengisi data.')
+
+elif authentication_status:
+    # --- JIKA BERHASIL LOGIN, TAMPILKAN TOMBOL LOGOUT DI SIDEBAR ---
+    authenticator.logout('Logout dari Sistem', 'sidebar')
+    
+    st.sidebar.success(f"Selamat Datang, {name}!")
+    
+    # -------------------------------------------------------------
+    # KODE UTAMA APLIKASI ANDA (Taruh semua kode input telur Anda di sini)
+    # -------------------------------------------------------------
+    st.title("Sistem Input Data Telur - Kurnia Sanusi Farm")
+    
+    # Masukkan sisa fungsi menu web, form input, dan tombol cetak PDF laporan Anda di bawah sini...
+
 st.set_page_config(
     page_title="Rekap Produksi Telur",
     page_icon="🥚",
