@@ -57,7 +57,7 @@ if not st.session_state["sudah_login"]:
                 else:
                     st.error("❌ Username atau Password salah! Periksa kembali input Anda.")
         
-        st.info("💡 Petunjuk Akses:\n- Gunakan Huruf Kapital Semua.\n- Hubungi admin jika lupa data akses akun.")
+        st.info("💡 Petunjuk Akses:\n- Hubungi admin jika lupa data akses akun.")
     st.stop() # Kunci halaman sisa di bawah agar tidak tereksekusi sebelum login berhasil
 
 # Menyimpan variabel name agar kompatibel dengan sisa kode dashboard Anda
