@@ -366,46 +366,54 @@ if menu == "Dashboard":
             # === BAGIAN METRIK KEUANGAN ===
             st.subheader("💸 Laporan Keuangan")
             
-            # CSS Kustom untuk memaksa st.metric Keuntungan Bersih memiliki warna background pill badge
+            # Hitung nilai absolut untuk format tampilan nominal angka
             nominal_bersih_abs = abs(keuntungan_bersih)
             teks_rupiah = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
             
+            # Menentukan warna box, teks, panah, dan status secara dinamis
             if keuntungan_bersih < 0:
                 warna_bg = "#fee2e2"      # Merah muda lembut
-                warna_teks = "#991b1b"    # Merah tua
+                warna_teks = "#b91c1c"    # Merah tegas/tua (Hex disesuaikan agar kontras)
                 simbol_panah = "↓"
                 status_teks = "Rugi"
                 tanda_minus = "-"
             else:
                 warna_bg = "#dcfce7"      # Hijau muda lembut
-                warna_teks = "#166534"    # Hijau tua
+                warna_teks = "#15803d"    # Hijau tegas/tua
                 simbol_panah = "↑"
                 status_teks = "Untung"
                 tanda_minus = ""
 
-            # Inject CSS khusus untuk memformat kolom metrik ketiga agar menjadi badge warna
+            # Inject CSS yang aman untuk memberikan latar belakang pill badge pada metrik ketiga
             st.markdown(f"""
                 <style>
-                div[data-testid="stMetricContent"]:has(div:contains("{simbol_panah}")) {{
+                /* Menargetkan khusus area nilai metrik di dalam class kustom kita */
+                .metrik-untung-rugi div[data-testid="stMetricContent"] {{
                     background-color: {warna_bg} !important;
-                    color: {warna_teks} !important;
-                    padding: 8px 16px !important;
-                    border-radius: 12px !important;
+                    padding: 6px 14px !important;
+                    border-radius: 10px !important;
                     display: inline-block !important;
                     margin-top: 4px !important;
                 }}
-                /* Memastikan teks angka utama di dalam badge ikut berwarna sesuai status */
-                div[data-testid="stMetricValue"]:has(div:contains("{simbol_panah}")) {{
+                /* Memaksa warna teks angka & panah agar berubah sesuai kondisi untung/rugi */
+                .metrik-untung-rugi div[data-testid="stMetricValue"] {{
                     color: {warna_teks} !important;
                 }}
                 </style>
             """, unsafe_allow_html=True)
 
-            # Membuat 3 kolom yang kini semuanya setara menggunakan st.metric
+            # Membuat susunan 3 kolom metrik keuangan
             c1, c2, c3 = st.columns(3)
+            
+            # Kolom 1 dan Kolom 2 menggunakan gaya standar bawaan Streamlit
             c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
             c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
-            c3.metric("📈 Keuntungan Bersih", f"{simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})")
+            
+            # Kolom 3 dibungkus dengan container HTML agar CSS di atas aktif dan warna tidak hilang
+            with c3:
+                st.markdown('<div class="metrik-untung-rugi">', unsafe_allow_html=True)
+                st.metric("📈 Keuntungan Bersih", f"{simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})")
+                st.markdown('</div>', unsafe_allow_html=True)
 
             st.divider()
             
