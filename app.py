@@ -365,11 +365,8 @@ if menu == "Dashboard":
             
             # === BAGIAN METRIK KEUANGAN ===
             st.subheader("💸 Laporan Keuangan")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
-            c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
             
-            # BAGIAN KEUNTUNGAN BERSIH (BADGE BERWARNA)
+            # CSS Kustom untuk memaksa st.metric Keuntungan Bersih memiliki warna background pill badge
             nominal_bersih_abs = abs(keuntungan_bersih)
             teks_rupiah = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
             
@@ -386,24 +383,29 @@ if menu == "Dashboard":
                 status_teks = "Untung"
                 tanda_minus = ""
 
-            # Menampilkan judul kecil di kolom 3
-            c3.markdown("<p style='margin:0; font-size:14px; color:rgb(49, 51, 63); font-weight:400;'>📈 Keuntungan Bersih</p>", unsafe_allow_html=True)
-            
-            # Menampilkan pill/badge merah atau hijau saja di bawah judul
-            c3.markdown(f"""
-                <div style="
-                    display: inline-block; 
-                    background-color: {warna_bg}; 
-                    color: {warna_teks}; 
-                    padding: 4px 12px; 
-                    border-radius: 12px; 
-                    font-size: 16px; 
-                    font-weight: 500;
-                    margin-top: 8px;
-                ">
-                    {simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})
-                </div>
+            # Inject CSS khusus untuk memformat kolom metrik ketiga agar menjadi badge warna
+            st.markdown(f"""
+                <style>
+                div[data-testid="stMetricContent"]:has(div:contains("{simbol_panah}")) {{
+                    background-color: {warna_bg} !important;
+                    color: {warna_teks} !important;
+                    padding: 8px 16px !important;
+                    border-radius: 12px !important;
+                    display: inline-block !important;
+                    margin-top: 4px !important;
+                }}
+                /* Memastikan teks angka utama di dalam badge ikut berwarna sesuai status */
+                div[data-testid="stMetricValue"]:has(div:contains("{simbol_panah}")) {{
+                    color: {warna_teks} !important;
+                }}
+                </style>
             """, unsafe_allow_html=True)
+
+            # Membuat 3 kolom yang kini semuanya setara menggunakan st.metric
+            c1, c2, c3 = st.columns(3)
+            c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {format_rupiah_kustom(grand_total_pendapatan)}")
+            c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
+            c3.metric("📈 Keuntungan Bersih", f"{simbol_panah} {tanda_minus}{teks_rupiah} ({status_teks})")
 
             st.divider()
             
