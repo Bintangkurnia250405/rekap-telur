@@ -80,39 +80,70 @@ def format_tanggal_indo(tgl_str):
     except Exception:
         return tgl_str
 
+def format_rupiah_kustom(val):
+    """Mengubah angka nominal menjadi format string dengan titik (Contoh: 45000 -> 45.000)"""
+    try:
+        return f"{int(val):,}".replace(",", ".")
+    except Exception:
+        return val
+
 def ambil_jam_wib():
     waktu_utc = datetime.utcnow()
     waktu_wib = waktu_utc + timedelta(hours=7)
     return waktu_wib.strftime("%H:%M:%S")
 
-# Fungsi Pembuat PDF Laporan
-def buat_pdf_laporan(judul_laporan, df_data):
+# Fungsi Pembuat PDF Laporan dengan Kop Baru
+def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     story = []
     
     styles = getSampleStyleSheet()
     
+    farm_style = ParagraphStyle(
+        'FarmPDF',
+        parent=styles['Heading1'],
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#8B4513'),
+        alignment=1,
+        spaceAfter=4
+    )
+    
     title_style = ParagraphStyle(
         'JudulPDF',
-        parent=styles['Heading1'],
-        fontSize=16,
-        leading=20,
-        textColor=colors.HexColor('#8B4513'),
+        parent=styles['Heading2'],
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor('#A0522D'),
         alignment=1, 
+        spaceAfter=4
+    )
+    
+    date_style = ParagraphStyle(
+        'TanggalPDF',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=14,
+        textColor=colors.HexColor('#444444'),
+        alignment=1,
         spaceAfter=10
     )
     
     sub_style = ParagraphStyle(
         'SubJudulPDF',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=9,
         textColor=colors.gray,
         alignment=1,
         spaceAfter=20
     )
     
-    story.append(Paragraph(judul_laporan.upper(), title_style))
+    # Header Laporan Baru
+    story.append(Paragraph("KURNIA SANUSI FARM", farm_style))
+    story.append(Paragraph(jenis_laporan.upper(), title_style))
+    story.append(Paragraph(f"{tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
+    
     waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
     story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", sub_style))
     
@@ -131,7 +162,7 @@ def buat_pdf_laporan(judul_laporan, df_data):
         ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
@@ -183,17 +214,17 @@ if menu == "Dashboard":
         keuntungan_bersih = grand_total_pendapatan - grand_total_pengeluaran
         
         c1, c2, c3 = st.columns(3)
-        c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {grand_total_pendapatan:,}")
-        c2.metric("💸 Total Pengeluaran", f"Rp {grand_total_pengeluaran:,}")
-        c3.metric("📈 Keuntungan Bersih", f"Rp {keuntungan_bersih:,}")
+        c1.metric("💰 Total Pendapatan (Omzet)", f"Rp {grand_total_pendapatan:,}".replace(",", "."))
+        c2.metric("💸 Total Pengeluaran", f"Rp {grand_total_pengeluaran:,}".replace(",", "."))
+        c3.metric("📈 Keuntungan Bersih", f"Rp {keuntungan_bersih:,}".replace(",", "."))
 
         st.divider()
         
         st.subheader("📦 Total Produksi Telur")
         cx1, cx2, cx3 = st.columns(3)
-        cx1.metric("🐔 Telur Ayam", f"{total_ayam:,} butir")
-        cx2.metric("🦆 Telur Bebek", f"{total_bebek:,} butir")
-        cx3.metric("🐦 Telur Puyuh", f"{total_puyuh:,} butir")
+        cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " butir")
+        cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " butir")
+        cx3.metric("🐦 Telur Puyuh", f"{total_puyuh:,}".replace(",", ".") + " butir")
 
         st.divider()
 
@@ -242,6 +273,7 @@ elif menu == "Input Produksi":
         if data_ada:
             if st.button("🔄 Perbarui Data Produksi (Overwrite)", type="primary"):
                 jam_wib = ambil_jam_wib()
+                # PERBAIKAN FIXED: Mengubah UPDATEBox menjadi UPDATE biasa agar tidak memicu OperationalError sqlite3
                 conn.execute("UPDATE produksi SET ayam = ?, bebek = ?, puyuh = ?, jam = ? WHERE tanggal = ?", (ayam, bebek, puyuh, jam_wib, str_tanggal))
                 conn.commit()
                 st.success(f"Data tanggal {str_tanggal_indo} berhasil diperbarui pada jam {jam_wib} WIB!")
@@ -301,7 +333,7 @@ elif menu == "Data Produksi":
             df_filtered["Total"] = df_filtered["ayam"] + df_filtered["bebek"] + df_filtered["puyuh"]
             df_tabel = df_filtered.drop(columns=["id"], errors="ignore").sort_values(by="tanggal", ascending=False)
             
-            # 1. Hitung total per kolom numerik sebelum format tanggal diubah
+            # 1. Hitung total per kolom numerik sebelum format diubah
             total_ayam_s = df_tabel["ayam"].sum()
             total_bebek_s = df_tabel["bebek"].sum()
             total_puyuh_s = df_tabel["puyuh"].sum()
@@ -323,7 +355,7 @@ elif menu == "Data Produksi":
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_data = buat_pdf_laporan(f"Laporan Rekap Produksi Telur ({format_tanggal_indo(str(tgl_mulai))} s/d {format_tanggal_indo(str(tgl_selesai))})", df_tabel)
+                pdf_data = buat_pdf_laporan("Laporan Rekap Produksi Telur", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_data,
@@ -344,7 +376,6 @@ elif menu == "Data Produksi":
         id_terpilih = st.selectbox("Pilih baris data produksi yang ingin dihapus permanen:", options=list(pilihan_data.keys()), format_func=lambda x: pilihan_data[x])
         
         if st.button("Hapus Permanen", type="primary"):
-            conn.execute("DELETE FROM Bird_produksi_tmp WHERE id = ?", (id_terpilih,)) # Disesuaikan ke basis data asli Anda jika perlu
             conn.execute("DELETE FROM produksi WHERE id = ?", (id_terpilih,))
             conn.commit()
             st.success("Data produksi berhasil dihapus!")
@@ -356,7 +387,7 @@ elif menu == "Data Produksi":
 elif menu == "Data Pendapatan":
     st.subheader("💰 Laporan Pendapatan Keuangan (Omzet)")
 
-    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM Bird_produksi_tmp", conn) if False else pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
+    df_dana_all = pd.read_sql("SELECT tanggal, jam, ayam, bebek, puyuh FROM produksi", conn)
 
     if df_dana_all.empty:
         st.info("Belum ada data transaksi keuangan.")
@@ -402,12 +433,18 @@ elif menu == "Data Pendapatan":
             }])
             df_tabel_uang = pd.concat([df_tabel_uang, row_total_uang], ignore_index=True)
 
+            # PERBAIKAN FORMAT UANG: Mengubah tampilan angka menggunakan format titik (.)
+            df_tabel_uang["Uang Ayam (Rp)"] = df_tabel_uang["Uang Ayam (Rp)"].apply(format_rupiah_kustom)
+            df_tabel_uang["Uang Bebek (Rp)"] = df_tabel_uang["Uang Bebek (Rp)"].apply(format_rupiah_kustom)
+            df_tabel_uang["Uang Puyuh (Rp)"] = df_tabel_uang["Uang Puyuh (Rp)"].apply(format_rupiah_kustom)
+            df_tabel_uang["Total Pendapatan (Rp)"] = df_tabel_uang["Total Pendapatan (Rp)"].apply(format_rupiah_kustom)
+
             st.dataframe(df_tabel_uang, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_pendapatan = buat_pdf_laporan(f"Laporan Pendapatan Keuangan ({format_tanggal_indo(str(tgl_mulai))} s/d {format_tanggal_indo(str(tgl_selesai))})", df_tabel_uang)
+                pdf_pendapatan = buat_pdf_laporan("Laporan Pendapatan Keuangan", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel_uang)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_pendapatan,
@@ -461,7 +498,7 @@ elif menu == "Data Pengeluaran":
         else:
             df_tabel_keluar = df_keluar_filtered.drop(columns=["id"], errors="ignore")
             
-            # 1. Hitung total pengeluaran rupiah sebelum format tanggal diubah
+            # 1. Hitung total pengeluaran rupiah sebelum format diubah
             total_pengeluaran_s = df_tabel_keluar["Jumlah (Rp)"].sum()
             
             # 2. Ubah format kolom tanggal ke format Indonesia
@@ -473,12 +510,15 @@ elif menu == "Data Pengeluaran":
             }])
             df_tabel_keluar = pd.concat([df_tabel_keluar, row_total_keluar], ignore_index=True)
 
+            # PERBAIKAN FORMAT UANG: Mengubah tampilan nominal jumlah pengeluaran menggunakan titik (.)
+            df_tabel_keluar["Jumlah (Rp)"] = df_tabel_keluar["Jumlah (Rp)"].apply(format_rupiah_kustom)
+
             st.dataframe(df_tabel_keluar, use_container_width=True, hide_index=True)
 
             # Tombol Cetak / Simpan Berformat File Resmi
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_pengeluaran = buat_pdf_laporan(f"Laporan Pengeluaran Operasional ({format_tanggal_indo(str(tgl_mulai))} s/d {format_tanggal_indo(str(tgl_selesai))})", df_tabel_keluar)
+                pdf_pengeluaran = buat_pdf_laporan("Laporan Pengeluaran Operasional", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel_keluar)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_pengeluaran,
