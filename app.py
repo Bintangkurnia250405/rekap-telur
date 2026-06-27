@@ -321,28 +321,28 @@ if menu == "Dashboard":
         c2.metric("💸 Total Pengeluaran", f"Rp {format_rupiah_kustom(grand_total_pengeluaran)}")
         
         # -----------------------------------------------------------------
-        # YANG DIUBAH / DITAMBAHKAN ADALAH BLOK DI BAWAH INI:
+        # KODE YANG SUDAH DIPERBAIKI (TIDAK DOUBLE LAGI)
         # -----------------------------------------------------------------
-        nominal_bersih_abs = abs(keuntungan_bersih) # Mengubah angka minus jadi positif untuk teks utama
+        nominal_bersih_abs = abs(keuntungan_bersih) # Angka di teks utama selalu positif
         teks_utama = f"Rp {format_rupiah_kustom(nominal_bersih_abs)}"
         
         if keuntungan_bersih < 0:
-            status_delta = f"-Rp {format_rupiah_kustom(nominal_bersih_abs)} (Rugi)"
+            status_delta = "- Keadaan: Rugi"  # Tanda (-) membuat otomatis berwarna MERAH
         else:
-            status_delta = f"+Rp {format_rupiah_kustom(nominal_bersih_abs)} (Untung)"
+            status_delta = "Keadaan: Untung"  # Tanpa (-) otomatis berwarna HIJAU
             
-        # Tampilkan metrik keuntungan bersih menggunakan parameter delta
+        # Tampilkan metrik keuntungan bersih tanpa dobel nominal rupiah
         c3.metric(
             label="📈 Keuntungan Bersih", 
             value=teks_utama, 
             delta=status_delta, 
-            delta_color="normal" # Otomatis MERAH jika ada tanda minus (-) di delta, HIJAU jika tidak ada
+            delta_color="normal" 
         )
         # -----------------------------------------------------------------
 
         st.divider()
         
-        st.subheader("🥚 Total Produksi Telur")
+        st.title("🥚 Total Produksi Telur")
         cx1, cx2, cx3 = st.columns(3)
         cx1.metric("🐔 Telur Ayam", f"{total_ayam:,}".replace(",", ".") + " butir")
         cx2.metric("🦆 Telur Bebek", f"{total_bebek:,}".replace(",", ".") + " butir")
