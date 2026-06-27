@@ -567,7 +567,7 @@ elif menu == "Data Produksi":
 
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                pdf_data = buat_pdf_laporan("Laporan Rekap Produksi Telur", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel)
+                pdf_data = buat_pdf_laporan("Laporan Produksi Telur", format_tanggal_indo(str(tgl_mulai)), format_tanggal_indo(str(tgl_selesai)), df_tabel)
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_data,
