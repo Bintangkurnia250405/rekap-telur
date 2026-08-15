@@ -842,6 +842,49 @@ elif menu == "Data Pengeluaran":
                 with open(excel_keluar, "rb") as file_keluar:
                     st.download_button("⬇ Download File Excel", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.xlsx", use_container_width=True)
 
+            # ==========================
+            # GRAFIK PENGELUARAN
+            # ==========================
+            st.divider()
+            st.subheader("📊 Grafik Pengeluaran Harian")
+
+            df_grafik_keluar = df_keluar_filtered.copy()
+            df_grafik_keluar["tanggal"] = pd.to_datetime(
+                df_grafik_keluar["tanggal"]
+            )
+
+            # Grafik menggunakan data asli sebelum tanggal diformat untuk tabel.
+            fig_pengeluaran = px.line(
+                df_grafik_keluar.sort_values("tanggal"),
+                x="tanggal",
+                y="jumlah",
+                markers=True,
+                title="Tren Pengeluaran Harian",
+                labels={
+                    "tanggal": "Tanggal",
+                    "jumlah": "Pengeluaran (Rp)"
+                }
+            )
+
+            fig_pengeluaran.update_xaxes(
+                tickformat="%d/%m/%Y"
+            )
+
+            fig_pengeluaran.update_yaxes(
+                tickprefix="Rp ",
+                separatethousands=True
+            )
+
+            fig_pengeluaran.update_layout(
+                template="plotly_white",
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(
+                fig_pengeluaran,
+                use_container_width=True
+            )
+
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
         pilihan_keluar = {row["id"]: f"{format_tanggal_indo(row['tanggal'])} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]" for _, row in df_keluar_all.iterrows()}
