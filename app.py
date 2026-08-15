@@ -57,6 +57,28 @@ if not st.session_state["sudah_login"]:
         st.info("💡 Petunjuk Akses:\n- Hubungi admin jika lupa data akses akun.")
     st.stop() # Kunci halaman sisa di bawah agar tidak tereksekusi sebelum login berhasil
 
+# Sistem notifikasi agar pesan sukses tetap terlihat setelah st.rerun()
+if "notifikasi" not in st.session_state:
+    st.session_state["notifikasi"] = None
+
+def set_notifikasi(jenis, pesan):
+    st.session_state["notifikasi"] = {
+        "jenis": jenis,
+        "pesan": pesan
+    }
+
+if st.session_state["notifikasi"]:
+    notif = st.session_state["notifikasi"]
+    if notif["jenis"] == "success":
+        st.success(notif["pesan"])
+    elif notif["jenis"] == "error":
+        st.error(notif["pesan"])
+    elif notif["jenis"] == "warning":
+        st.warning(notif["pesan"])
+    else:
+        st.info(notif["pesan"])
+    st.session_state["notifikasi"] = None
+
 # Menyimpan variabel name agar kompatibel dengan sisa kode dashboard Anda
 name = st.session_state["nama_user"]
 
@@ -496,7 +518,10 @@ elif menu == "Input Produksi":
                     .eq("tanggal", str_tanggal)
                     .execute()
                 )
-                st.success(f"Data tanggal {str_tanggal_indo} berhasil diperbarui pada jam {jam_wib} WIB!")
+                set_notifikasi(
+                    "success",
+                    f"✅ Data produksi tanggal {str_tanggal_indo} berhasil diperbarui pada jam {jam_wib} WIB!"
+                )
                 st.rerun()
         else:
             if st.button("📥 Simpan Data Produksi Baru"):
@@ -506,7 +531,10 @@ elif menu == "Input Produksi":
                     .insert({"tanggal": str_tanggal, "jam": jam_wib, "ayam": ayam, "bebek": bebek, "puyuh": puyuh})
                     .execute()
                 )
-                st.success(f"Data baru berhasil disimpan pada jam {jam_wib} WIB.")
+                set_notifikasi(
+                    "success",
+                    f"✅ Data produksi tanggal {str_tanggal_indo} berhasil disimpan pada jam {jam_wib} WIB."
+                )
                 st.rerun()
 
     # --- TAB 2: INPUT PENGELUARAN BIAYA (DENGAN FITUR EDIT/OVERWRITE) ---
@@ -544,7 +572,10 @@ elif menu == "Input Produksi":
                         .eq("tanggal", str_tgl_keluar)
                         .execute()
                     )
-                    st.success(f"Nota pengeluaran tanggal {str_tgl_keluar_indo} berhasil diperbarui pada jam {jam_wib_biaya} WIB!")
+                    set_notifikasi(
+                        "success",
+                        f"✅ Nota pengeluaran tanggal {str_tgl_keluar_indo} berhasil diperbarui pada jam {jam_wib_biaya} WIB!"
+                    )
                     st.rerun()
         else:
             if st.button("📥 Simpan Nota Pengeluaran Baru", type="secondary", key="btn_simpan_keluar"):
@@ -559,7 +590,10 @@ elif menu == "Input Produksi":
                         .insert({"tanggal": str_tgl_keluar, "jam": jam_wib_biaya, "keterangan": keterangan, "jumlah": jumlah_biaya})
                         .execute()
                     )
-                    st.success(f"Pengeluaran baru berhasil dicatat pada jam {jam_wib_biaya} WIB!")
+                    set_notifikasi(
+                        "success",
+                        f"✅ Pengeluaran baru tanggal {str_tgl_keluar_indo} berhasil dicatat pada jam {jam_wib_biaya} WIB!"
+                    )
                     st.rerun()
 
 # ==========================
@@ -629,10 +663,42 @@ elif menu == "Data Produksi":
         pilihan_data = {row["id"]: f"{format_tanggal_indo(row['tanggal'])} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]" for _, row in df_all.iterrows()}
         id_terpilih = st.selectbox("Pilih baris data produksi yang ingin dihapus permanen:", options=list(pilihan_data.keys()), format_func=lambda x: pilihan_data[x])
         
-        if st.button("Hapus Permanen", type="primary"):
-            supabase.table("produksi").delete().eq("id", int(id_terpilih)).execute()
-            st.success("Data produksi berhasil dihapus!")
-            st.rerun()
+        if st.button("🗑️ Hapus Permanen", type="primary", key="btn_hapus_produksi"):
+            st.session_state["konfirmasi_hapus_produksi"] = True
+
+        if st.session_state.get("konfirmasi_hapus_produksi", False):
+            st.warning(
+                f"⚠️ Apakah Anda yakin ingin menghapus data produksi "
+                f"tanggal {format_tanggal_indo(df_all[df_all['id'] == id_terpilih].iloc[0]['tanggal'])}? "
+                f"Data yang dihapus tidak dapat dikembalikan."
+            )
+
+            konfirmasi_col1, konfirmasi_col2 = st.columns(2)
+
+            with konfirmasi_col1:
+                if st.button(
+                    "✅ Ya, Saya Yakin Hapus Data",
+                    type="primary",
+                    key="konfirmasi_hapus_produksi_btn"
+                ):
+                    supabase.table("produksi").delete().eq(
+                        "id", int(id_terpilih)
+                    ).execute()
+
+                    st.session_state["konfirmasi_hapus_produksi"] = False
+                    set_notifikasi(
+                        "success",
+                        "🗑️ Data produksi berhasil dihapus."
+                    )
+                    st.rerun()
+
+            with konfirmasi_col2:
+                if st.button(
+                    "❌ Batal",
+                    key="batal_hapus_produksi"
+                ):
+                    st.session_state["konfirmasi_hapus_produksi"] = False
+                    st.rerun()
 
 # ==========================
 # FITUR MENU 4: DATA PENDAPATAN
@@ -781,7 +847,44 @@ elif menu == "Data Pengeluaran":
         pilihan_keluar = {row["id"]: f"{format_tanggal_indo(row['tanggal'])} (Jam {row['jam']}) — {row['keterangan']} [Rp {row['Jumlah (Rp)']:,}]" for _, row in df_keluar_all.iterrows()}
         id_keluar_terpilih = st.selectbox("Pilih nota pengeluaran yang ingin dihapus:", options=list(pilihan_keluar.keys()), format_func=lambda x: pilihan_keluar[x])
 
-        if st.button("Hapus Nota", type="primary"):
-            supabase.table("pengeluaran").delete().eq("id", int(id_keluar_terpilih)).execute()
-            st.success("Nota pengeluaran berhasil dihapus!")
-            st.rerun()
+        if st.button("🗑️ Hapus Nota", type="primary", key="btn_hapus_pengeluaran"):
+            st.session_state["konfirmasi_hapus_pengeluaran"] = True
+
+        if st.session_state.get("konfirmasi_hapus_pengeluaran", False):
+            data_hapus_keluar = df_keluar_all[
+                df_keluar_all["id"] == id_keluar_terpilih
+            ].iloc[0]
+
+            st.warning(
+                f"⚠️ Apakah Anda yakin ingin menghapus nota pengeluaran "
+                f"tanggal {format_tanggal_indo(data_hapus_keluar['tanggal'])} "
+                f"dengan keterangan '{data_hapus_keluar['keterangan']}'? "
+                f"Data yang dihapus tidak dapat dikembalikan."
+            )
+
+            konfirmasi_col1, konfirmasi_col2 = st.columns(2)
+
+            with konfirmasi_col1:
+                if st.button(
+                    "✅ Ya, Saya Yakin Hapus Nota",
+                    type="primary",
+                    key="konfirmasi_hapus_pengeluaran_btn"
+                ):
+                    supabase.table("pengeluaran").delete().eq(
+                        "id", int(id_keluar_terpilih)
+                    ).execute()
+
+                    st.session_state["konfirmasi_hapus_pengeluaran"] = False
+                    set_notifikasi(
+                        "success",
+                        "🗑️ Nota pengeluaran berhasil dihapus."
+                    )
+                    st.rerun()
+
+            with konfirmasi_col2:
+                if st.button(
+                    "❌ Batal",
+                    key="batal_hapus_pengeluaran"
+                ):
+                    st.session_state["konfirmasi_hapus_pengeluaran"] = False
+                    st.rerun()
