@@ -658,6 +658,35 @@ elif menu == "Data Produksi":
                 with open(excel, "rb") as file:
                     st.download_button("⬇ Download File Excel", file, file_name=f"rekap_produksi_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.xlsx", use_container_width=True)
 
+            # ==========================
+            # GRAFIK PRODUKSI HARIAN
+            # ==========================
+            st.divider()
+            st.subheader("📊 Grafik Produksi Telur Harian")
+
+            df_grafik_produksi = df_filtered.copy()
+            df_grafik_produksi["tanggal"] = pd.to_datetime(df_grafik_produksi["tanggal"], errors="coerce")
+            df_grafik_produksi["ayam"] = pd.to_numeric(df_grafik_produksi["ayam"], errors="coerce").fillna(0)
+            df_grafik_produksi["bebek"] = pd.to_numeric(df_grafik_produksi["bebek"], errors="coerce").fillna(0)
+            df_grafik_produksi["puyuh"] = pd.to_numeric(df_grafik_produksi["puyuh"], errors="coerce").fillna(0)
+
+            fig_produksi = px.line(
+                df_grafik_produksi.sort_values("tanggal"),
+                x="tanggal",
+                y=["ayam", "bebek", "puyuh"],
+                markers=True,
+                title="Tren Produksi Telur Harian",
+                labels={
+                    "tanggal": "Tanggal",
+                    "value": "Jumlah Telur (Butir)",
+                    "variable": "Jenis Telur"
+                }
+            )
+            fig_produksi.update_xaxes(tickformat="%d/%m/%Y")
+            fig_produksi.update_yaxes(title="Jumlah Telur (Butir)")
+            fig_produksi.update_layout(template="plotly_white", hovermode="x unified")
+            st.plotly_chart(fig_produksi, use_container_width=True)
+
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
         pilihan_data = {row["id"]: f"{format_tanggal_indo(row['tanggal'])} (Jam {row['jam']}) [🐔: {row['ayam']} | 🦆: {row['bebek']}]" for _, row in df_all.iterrows()}
@@ -850,19 +879,22 @@ elif menu == "Data Pengeluaran":
 
             df_grafik_keluar = df_keluar_filtered.copy()
             df_grafik_keluar["tanggal"] = pd.to_datetime(
-                df_grafik_keluar["tanggal"]
+                df_grafik_keluar["tanggal"], errors="coerce"
             )
+            df_grafik_keluar["Jumlah (Rp)"] = pd.to_numeric(
+                df_grafik_keluar["Jumlah (Rp)"], errors="coerce"
+            ).fillna(0)
 
             # Grafik menggunakan data asli sebelum tanggal diformat untuk tabel.
             fig_pengeluaran = px.line(
                 df_grafik_keluar.sort_values("tanggal"),
                 x="tanggal",
-                y="jumlah",
+                y="Jumlah (Rp)",
                 markers=True,
                 title="Tren Pengeluaran Harian",
                 labels={
                     "tanggal": "Tanggal",
-                    "jumlah": "Pengeluaran (Rp)"
+                    "Jumlah (Rp)": "Pengeluaran (Rp)"
                 }
             )
 
