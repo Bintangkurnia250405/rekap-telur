@@ -1,6 +1,4 @@
 streamlit
 pandas
 plotly
-openpyxl
-reportlab
-streamlit-authenticator==0.3.2
+supabase
