@@ -680,11 +680,20 @@ elif menu == "Data Produksi":
                     "tanggal": "Tanggal",
                     "value": "Jumlah Telur (Butir)",
                     "variable": "Jenis Telur"
+                },
+                color_discrete_map={
+                    "ayam": "#8B4513",
+                    "bebek": "#87CEFA",
+                    "puyuh": "#D3D3D3"
                 }
             )
             fig_produksi.update_xaxes(tickformat="%d/%m/%Y")
             fig_produksi.update_yaxes(title="Jumlah Telur (Butir)")
-            fig_produksi.update_layout(template="plotly_white", hovermode="x unified")
+            fig_produksi.update_layout(
+                template="plotly_white",
+                hovermode="x unified",
+                legend_title="Jenis Telur"
+            )
             st.plotly_chart(fig_produksi, use_container_width=True)
 
         st.divider()
