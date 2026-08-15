@@ -123,11 +123,14 @@ BULAN_INDO = {
 
 # FUNGSI PENDUKUNG
 def format_tanggal_indo(tgl_str):
+    """Format semua tanggal yang ditampilkan ke pengguna menjadi DD/MM/YYYY."""
     try:
-        dt = datetime.strptime(tgl_str, "%Y-%m-%d")
-        return f"{dt.day} {BULAN_INDO[dt.month]} {dt.year}"
+        if hasattr(tgl_str, "strftime"):
+            return tgl_str.strftime("%d/%m/%Y")
+        dt = datetime.strptime(str(tgl_str), "%Y-%m-%d")
+        return dt.strftime("%d/%m/%Y")
     except Exception:
-        return tgl_str
+        return str(tgl_str)
 
 def format_rupiah_kustom(val):
     try:
@@ -212,7 +215,7 @@ def buat_pdf_laporan(jenis_laporan, tgl_mulai_str, tgl_selesai_str, df_data):
     story.append(Paragraph(jenis_laporan.upper(), title_style))
     story.append(Paragraph(f"Periode: {tgl_mulai_str} S/D {tgl_selesai_str}", date_style))
     
-    waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d-%m-%Y %H:%M WIB")
+    waktu_cetak = (datetime.utcnow() + timedelta(hours=7)).strftime("%d/%m/%Y %H:%M WIB")
     story.append(Paragraph(f"Dicetak pada: {waktu_cetak}", info_cetak_style))
     story.append(Spacer(1, 15))
 
@@ -356,9 +359,9 @@ if menu == "Dashboard":
         st.markdown("### 🔍 Filter Analisis Berdasarkan Periode")
         col_tgl1, col_tgl2 = st.columns(2)
         with col_tgl1:
-            tgl_mulai_dash = st.date_input("Dari Tanggal", value=min_date_db, key="dash_tgl_mulai")
+            tgl_mulai_dash = st.date_input("Dari Tanggal", value=min_date_db, key="dash_tgl_mulai", format="DD/MM/YYYY")
         with col_tgl2:
-            tgl_selesai_dash = st.date_input("Sampai Tanggal", value=max_date_db, key="dash_tgl_selesai")
+            tgl_selesai_dash = st.date_input("Sampai Tanggal", value=max_date_db, key="dash_tgl_selesai", format="DD/MM/YYYY")
         
         st.divider()
 
@@ -464,7 +467,7 @@ elif menu == "Input Produksi":
     # --- TAB 1: INPUT PRODUKSI TELUR ---
     with tab1:
         st.subheader("Input / Edit Produksi Harian")
-        tanggal = st.date_input("Pilih Tanggal Produksi")
+        tanggal = st.date_input("Pilih Tanggal Produksi", format="DD/MM/YYYY")
         str_tanggal = str(tanggal)
         str_tanggal_indo = format_tanggal_indo(str_tanggal)
 
@@ -509,7 +512,7 @@ elif menu == "Input Produksi":
     # --- TAB 2: INPUT PENGELUARAN BIAYA (DENGAN FITUR EDIT/OVERWRITE) ---
     with tab2:
         st.subheader("Input / Edit Pengeluaran Operasional / Pakan")
-        tgl_pengeluaran = st.date_input("Tanggal Pengeluaran")
+        tgl_pengeluaran = st.date_input("Tanggal Pengeluaran", format="DD/MM/YYYY")
         str_tgl_keluar = str(tgl_pengeluaran)
         str_tgl_keluar_indo = format_tanggal_indo(str_tgl_keluar)
 
@@ -573,9 +576,9 @@ elif menu == "Data Produksi":
         col_tgl1, col_tgl2 = st.columns(2)
         
         with col_tgl1:
-            tgl_mulai = st.date_input("Dari Tanggal", value=datetime.strptime(df_all["tanggal"].min(), "%Y-%m-%d").date())
+            tgl_mulai = st.date_input("Dari Tanggal", value=datetime.strptime(df_all["tanggal"].min(), "%Y-%m-%d").date(), format="DD/MM/YYYY")
         with col_tgl2:
-            tgl_selesai = st.date_input("Sampai Tanggal", value=datetime.strptime(df_all["tanggal"].max(), "%Y-%m-%d").date())
+            tgl_selesai = st.date_input("Sampai Tanggal", value=datetime.strptime(df_all["tanggal"].max(), "%Y-%m-%d").date(), format="DD/MM/YYYY")
 
         df_all["tanggal_dt"] = pd.to_datetime(df_all["tanggal"]).dt.date
         df_filtered = df_all[(df_all["tanggal_dt"] >= tgl_mulai) & (df_all["tanggal_dt"] <= tgl_selesai)].copy()
@@ -610,7 +613,7 @@ elif menu == "Data Produksi":
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_data,
-                    file_name=f"Laporan_Produksi_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    file_name=f"Laporan_Produksi_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                     type="primary"
@@ -619,7 +622,7 @@ elif menu == "Data Produksi":
                 excel = "rekap_telur_filter.xlsx"
                 df_tampil_produksi.to_excel(excel, index=False)
                 with open(excel, "rb") as file:
-                    st.download_button("⬇ Download File Excel", file, file_name=f"rekap_produksi_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+                    st.download_button("⬇ Download File Excel", file, file_name=f"rekap_produksi_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.xlsx", use_container_width=True)
 
         st.divider()
         st.subheader("🗑️ Hapus Data Produksi")
@@ -647,9 +650,9 @@ elif menu == "Data Pendapatan":
         col_tgl1, col_tgl2 = st.columns(2)
         
         with col_tgl1:
-            tgl_mulai = st.date_input("Dari Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].min(), "%Y-%m-%d").date())
+            tgl_mulai = st.date_input("Dari Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].min(), "%Y-%m-%d").date(), format="DD/MM/YYYY")
         with col_tgl2:
-            tgl_selesai = st.date_input("Sampai Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].max(), "%Y-%m-%d").date())
+            tgl_selesai = st.date_input("Sampai Tanggal ", value=datetime.strptime(df_dana_all["tanggal"].max(), "%Y-%m-%d").date(), format="DD/MM/YYYY")
 
         df_dana_all["tanggal_dt"] = pd.to_datetime(df_dana_all["tanggal"]).dt.date
         df_dana = df_dana_all[(df_dana_all["tanggal_dt"] >= tgl_mulai) & (df_dana_all["tanggal_dt"] <= tgl_selesai)].copy()
@@ -693,7 +696,7 @@ elif menu == "Data Pendapatan":
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_pendapatan,
-                    file_name=f"Laporan_Pendapatan_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    file_name=f"Laporan_Pendapatan_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                     type="primary"
@@ -702,7 +705,7 @@ elif menu == "Data Pendapatan":
                 excel_keuangan = "rekap_pendapatan_filter.xlsx"
                 df_tampil_pendapatan.to_excel(excel_keuangan, index=False)
                 with open(excel_keuangan, "rb") as file_keuangan:
-                    st.download_button("⬇ Download File Excel", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+                    st.download_button("⬇ Download File Excel", file_keuangan, file_name=f"rekap_pendapatan_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.xlsx", use_container_width=True)
 
             st.divider()
             st.subheader("📊 Grafik Distribusi Keuangan Harian")
@@ -711,7 +714,7 @@ elif menu == "Data Pendapatan":
                 markers=True, title="Tren Pendapatan Omzet Rupiah",
                 color_discrete_map={"Uang Ayam (Rp)": "#8B4513", "Uang Bebek (Rp)": "#87CEFA", "Uang Puyuh (Rp)": "#D3D3D3", "Total Pendapatan (Rp)": "#00FF00"}
             )
-            fig_dana.update_xaxes(tickformat="%d %b %Y")
+            fig_dana.update_xaxes(tickformat="%d/%m/%Y")
             fig_dana.update_layout(template="plotly_white")
             st.plotly_chart(fig_dana, use_container_width=True)
 
@@ -729,9 +732,9 @@ elif menu == "Data Pengeluaran":
         col_tgl1, col_tgl2 = st.columns(2)
         
         with col_tgl1:
-            tgl_mulai = st.date_input("Dari Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].min(), "%Y-%m-%d").date())
+            tgl_mulai = st.date_input("Dari Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].min(), "%Y-%m-%d").date(), format="DD/MM/YYYY")
         with col_tgl2:
-            tgl_selesai = st.date_input("Sampai Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].max(), "%Y-%m-%d").date())
+            tgl_selesai = st.date_input("Sampai Tanggal  ", value=datetime.strptime(df_keluar_all["tanggal"].max(), "%Y-%m-%d").date(), format="DD/MM/YYYY")
 
         df_keluar_all["tanggal_dt"] = pd.to_datetime(df_keluar_all["tanggal"]).dt.date
         df_keluar_filtered = df_keluar_all[(df_keluar_all["tanggal_dt"] >= tgl_mulai) & (df_keluar_all["tanggal_dt"] <= tgl_selesai)].copy()
@@ -762,7 +765,7 @@ elif menu == "Data Pengeluaran":
                 st.download_button(
                     label="📄 Unduh / Cetak Laporan PDF",
                     data=pdf_pengeluaran,
-                    file_name=f"Laporan_Pengeluaran_{tgl_mulai}_to_{tgl_selesai}.pdf",
+                    file_name=f"Laporan_Pengeluaran_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                     type="primary"
@@ -771,7 +774,7 @@ elif menu == "Data Pengeluaran":
                 excel_keluar = "rekap_pengeluaran_filter.xlsx"
                 df_tampil_pengeluaran.to_excel(excel_keluar, index=False)
                 with open(excel_keluar, "rb") as file_keluar:
-                    st.download_button("⬇ Download File Excel", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai}_to_{tgl_selesai}.xlsx", use_container_width=True)
+                    st.download_button("⬇ Download File Excel", file_keluar, file_name=f"rekap_pengeluaran_{tgl_mulai.strftime("%d-%m-%Y")}_to_{tgl_selesai.strftime("%d-%m-%Y")}.xlsx", use_container_width=True)
 
         st.divider()
         st.subheader("🗑️ Hapus Nota Pengeluaran")
