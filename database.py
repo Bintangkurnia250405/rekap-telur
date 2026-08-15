@@ -1,21 +1,11 @@
-import sqlite3
+import streamlit as st
+from supabase import create_client
 
-DATABASE = "data_telur.db"
 
-def koneksi():
-    return sqlite3.connect(DATABASE, check_same_thread=False)
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-conn = koneksi()
-cursor = conn.cursor()
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS produksi(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tanggal TEXT,
-    ayam INTEGER,
-    bebek INTEGER,
-    puyuh INTEGER
+supabase = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY
 )
-""")
-
-conn.commit()
